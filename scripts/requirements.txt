@@ -1,0 +1,17 @@
+# Core data
+duckdb>=0.9
+pandas>=2.0
+numpy>=1.24
+
+# Figures
+matplotlib>=3.7
+
+# Markov analysis library (install from local source)
+# pip install -e path/to/markov-agent-analysis[all]
+# or: uv pip install -e path/to/markov-agent-analysis[all]
+#
+# For now, install deps manually since path varies:
+scipy>=1.10
+plotly>=5.0
+kaleido>=0.2
+networkx>=3.0

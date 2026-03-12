@@ -1,0 +1,43 @@
+experimentName: code-coverage-v2
+defaultModel: claude-sonnet-4-6
+timeoutMinutes: 45
+
+# Skills variants require spring-testing-skills installed to ~/.claude/skills/
+# before running. See plans/ROADMAP.md Stage 3 for install/uninstall protocol.
+# skillsInstall: true triggers pre-run installation from ~/community/spring-testing-skills/
+
+variants:
+  - name: simple
+    promptFile: plans/prompts/v0-simple.txt
+    knowledgeDir: null
+    knowledgeFiles: []
+
+  - name: hardened
+    promptFile: plans/prompts/v1-hardened.txt
+    knowledgeDir: null
+    knowledgeFiles: []
+
+  - name: hardened+kb
+    promptFile: plans/prompts/v1-hardened.txt
+    knowledgeDir: knowledge
+    knowledgeFiles:
+      - index.md
+
+  - name: hardened+skills
+    promptFile: plans/prompts/v1-hardened.txt
+    knowledgeDir: null
+    knowledgeFiles: []
+    skillsInstall: true
+
+  - name: hardened+skills+sae
+    promptFile: plans/prompts/v1-hardened-sae.txt
+    knowledgeDir: null
+    knowledgeFiles: []
+    skillsInstall: true
+
+  - name: hardened+skills+sae+forge
+    promptFile: plans/prompts/v3-explore.txt
+    actPromptFile: plans/prompts/v3-act.txt
+    knowledgeDir: null
+    knowledgeFiles: []
+    skillsInstall: true

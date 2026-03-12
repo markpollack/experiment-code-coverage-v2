@@ -1,0 +1,148 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <modelVersion>4.0.0</modelVersion>
+
+    <groupId>ai.tuvium</groupId>
+    <artifactId>tuvium-code-coverage-v2</artifactId>
+    <version>0.1.0-SNAPSHOT</version>
+    <name>tuvium-code-coverage-v2</name>
+    <description>Skills vs KB experiment: does agent-structured knowledge packaging outperform flat KB injection for Spring test quality?</description>
+
+    <properties>
+        <java.version>21</java.version>
+        <maven.compiler.source>${java.version}</maven.compiler.source>
+        <maven.compiler.target>${java.version}</maven.compiler.target>
+        <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
+
+        <!-- Dependency versions — keep in sync with tuvium-experiment-driver -->
+        <experiment-core.version>0.1.0-SNAPSHOT</experiment-core.version>
+        <agent-judge.version>0.9.0-SNAPSHOT</agent-judge.version>
+        <agent-client.version>0.10.0-SNAPSHOT</agent-client.version>
+        <jackson.version>2.20.0</jackson.version>
+        <snakeyaml.version>2.2</snakeyaml.version>
+        <slf4j.version>2.0.13</slf4j.version>
+        <logback.version>1.5.6</logback.version>
+        <junit.version>5.10.1</junit.version>
+        <assertj.version>3.24.2</assertj.version>
+    </properties>
+
+    <dependencies>
+        <!-- Experiment framework -->
+        <dependency>
+            <groupId>ai.tuvium</groupId>
+            <artifactId>experiment-core</artifactId>
+            <version>${experiment-core.version}</version>
+        </dependency>
+
+        <!-- Agent judge -->
+        <dependency>
+            <groupId>org.springaicommunity</groupId>
+            <artifactId>agent-judge-core</artifactId>
+            <version>${agent-judge.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>org.springaicommunity</groupId>
+            <artifactId>agent-judge-exec</artifactId>
+            <version>${agent-judge.version}</version>
+        </dependency>
+
+        <!-- Agent client -->
+        <dependency>
+            <groupId>org.springaicommunity.agents</groupId>
+            <artifactId>spring-ai-agent-client</artifactId>
+            <version>${agent-client.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>org.springaicommunity.agents</groupId>
+            <artifactId>spring-ai-claude-agent</artifactId>
+            <version>${agent-client.version}</version>
+        </dependency>
+
+        <!-- Claude Code SDK (sync client for two-phase sessions) -->
+        <dependency>
+            <groupId>org.springaicommunity</groupId>
+            <artifactId>claude-code-sdk</artifactId>
+            <version>1.0.0-SNAPSHOT</version>
+        </dependency>
+
+        <!-- YAML parsing -->
+        <dependency>
+            <groupId>org.yaml</groupId>
+            <artifactId>snakeyaml</artifactId>
+            <version>${snakeyaml.version}</version>
+        </dependency>
+
+        <!-- JSON -->
+        <dependency>
+            <groupId>com.fasterxml.jackson.core</groupId>
+            <artifactId>jackson-core</artifactId>
+            <version>${jackson.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>com.fasterxml.jackson.core</groupId>
+            <artifactId>jackson-databind</artifactId>
+            <version>${jackson.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>com.fasterxml.jackson.datatype</groupId>
+            <artifactId>jackson-datatype-jsr310</artifactId>
+            <version>${jackson.version}</version>
+        </dependency>
+
+        <!-- Logging -->
+        <dependency>
+            <groupId>org.slf4j</groupId>
+            <artifactId>slf4j-api</artifactId>
+            <version>${slf4j.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>ch.qos.logback</groupId>
+            <artifactId>logback-classic</artifactId>
+            <version>${logback.version}</version>
+            <scope>runtime</scope>
+        </dependency>
+
+        <!-- Test -->
+        <dependency>
+            <groupId>org.junit.jupiter</groupId>
+            <artifactId>junit-jupiter</artifactId>
+            <version>${junit.version}</version>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
+            <groupId>org.assertj</groupId>
+            <artifactId>assertj-core</artifactId>
+            <version>${assertj.version}</version>
+            <scope>test</scope>
+        </dependency>
+    </dependencies>
+
+    <build>
+        <plugins>
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-compiler-plugin</artifactId>
+                <version>3.13.0</version>
+            </plugin>
+            <plugin>
+                <groupId>org.codehaus.mojo</groupId>
+                <artifactId>exec-maven-plugin</artifactId>
+                <version>3.1.0</version>
+                <configuration>
+                    <mainClass>ai.tuvium.coverage.Main</mainClass>
+                </configuration>
+            </plugin>
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-surefire-plugin</artifactId>
+                <version>3.2.5</version>
+                <configuration>
+                    <excludedGroups>integration</excludedGroups>
+                </configuration>
+            </plugin>
+        </plugins>
+    </build>
+
+</project>

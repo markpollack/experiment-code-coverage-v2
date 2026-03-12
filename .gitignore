@@ -1,0 +1,6 @@
+results/
+knowledge/
+.env
+.DS_Store
+target/
+data/curated/
