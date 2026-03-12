@@ -95,6 +95,12 @@ public abstract class AbstractCoverageAgentInvoker implements AgentInvoker {
 		if (skillsInstall) {
 			logger.info("Step 4a: Installing spring-testing-skills");
 			skillsInstaller.install();
+			if (!skillsInstaller.isInstalled()) {
+				throw new IllegalStateException(
+						"Skills installation reported success but no skill directories found in ~/.claude/skills/. "
+								+ "Check SkillsInstaller logs above. Aborting to avoid running agent without skills.");
+			}
+			logger.info("Step 4b: Skills verified present in ~/.claude/skills/");
 			skillsWereInstalled = true;
 		}
 

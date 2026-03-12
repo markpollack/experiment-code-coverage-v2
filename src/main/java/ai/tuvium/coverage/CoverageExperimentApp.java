@@ -202,7 +202,7 @@ public class CoverageExperimentApp {
 			.tierPolicy(2, TierPolicy.ACCEPT_ON_ALL_PASS)
 			.addJudge(3, new TestQualityJudge(
 					TestQualityJudge.defaultAgentClientFactory("claude-sonnet-4-6", Duration.ofMinutes(3)),
-					projectRoot.resolve("prompts/judge-practice-adherence.txt")))
+					projectRoot.resolve("plans/prompts/judge-practice-adherence.txt")))
 			.tierPolicy(3, TierPolicy.FINAL_TIER)
 			.build();
 	}
