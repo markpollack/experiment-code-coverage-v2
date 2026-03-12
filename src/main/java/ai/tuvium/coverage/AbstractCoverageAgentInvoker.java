@@ -65,7 +65,8 @@ public abstract class AbstractCoverageAgentInvoker implements AgentInvoker {
 
 		// 1. Verify baseline builds
 		logger.info("Step 1: Verifying project compiles");
-		BuildResult compileResult = MavenBuildRunner.runBuild(workspace, 5, "clean", "compile");
+		BuildResult compileResult = MavenBuildRunner.runBuild(workspace, 5, "clean", "compile",
+				"-Dspring-javaformat.skip=true", "-Dcheckstyle.skip=true");
 		if (!compileResult.success()) {
 			return InvocationResult.error("Project does not compile: " + compileResult.output(),
 					context.metadata());
@@ -271,7 +272,8 @@ public abstract class AbstractCoverageAgentInvoker implements AgentInvoker {
 	}
 
 	protected CoverageMetrics measureCoverage(Path workspace) {
-		BuildResult result = MavenBuildRunner.runBuild(workspace, 10, "clean", "test", "jacoco:report");
+		BuildResult result = MavenBuildRunner.runBuild(workspace, 10, "clean", "test", "jacoco:report",
+				"-Dspring-javaformat.skip=true", "-Dcheckstyle.skip=true");
 		if (result.success()) {
 			return JaCoCoReportParser.parse(workspace);
 		}
