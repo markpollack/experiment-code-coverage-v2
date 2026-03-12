@@ -193,11 +193,19 @@ public abstract class AbstractCoverageAgentInvoker implements AgentInvoker {
 		}
 	}
 
+	// Excludes application bootstrap classes (main() methods) which agents must not test.
+	// Pattern matches *Application.java and *Main.java anywhere in the package tree.
 	private static final String JACOCO_PLUGIN_SNIPPET = """
 			<plugin>
 				<groupId>org.jacoco</groupId>
 				<artifactId>jacoco-maven-plugin</artifactId>
-				<version>0.8.12</version>
+				<version>0.8.14</version>
+				<configuration>
+					<excludes>
+						<exclude>**/*Application.class</exclude>
+						<exclude>**/*Main.class</exclude>
+					</excludes>
+				</configuration>
 				<executions>
 					<execution>
 						<id>default</id>
