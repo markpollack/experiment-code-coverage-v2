@@ -20,7 +20,7 @@
         <experiment-core.version>0.1.0-SNAPSHOT</experiment-core.version>
         <agent-judge.version>0.9.0-SNAPSHOT</agent-judge.version>
         <agent-client.version>0.10.0-SNAPSHOT</agent-client.version>
-        <jackson.version>2.20.0</jackson.version>
+        <jackson.version>2.19.4</jackson.version>
         <snakeyaml.version>2.2</snakeyaml.version>
         <slf4j.version>2.0.13</slf4j.version>
         <logback.version>1.5.6</logback.version>
@@ -74,7 +74,12 @@
             <version>${snakeyaml.version}</version>
         </dependency>
 
-        <!-- JSON -->
+        <!-- JSON — pin all three jackson-core artifacts to same version to avoid NoSuchMethodError -->
+        <dependency>
+            <groupId>com.fasterxml.jackson.core</groupId>
+            <artifactId>jackson-annotations</artifactId>
+            <version>${jackson.version}</version>
+        </dependency>
         <dependency>
             <groupId>com.fasterxml.jackson.core</groupId>
             <artifactId>jackson-core</artifactId>
