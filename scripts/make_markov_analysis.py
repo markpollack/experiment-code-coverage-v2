@@ -60,56 +60,61 @@ if DISCOVERY_MODE:
 # These are the labels your classify_state() function returns.
 # Common starting point — adjust after inspecting discovery-mode output.
 STATES = [
-    "EXPLORE",    # reading/searching source files, directories, discovery
-    "READ_KB",    # reading knowledge base files
-    "WRITE",      # writing output files (first time)
-    "BUILD",      # running build/test/verify commands
-    "VERIFY",     # reading back output, checking results
-    "FIX",        # editing/rewriting output after an error
+    "EXPLORE",      # reading source files, directories, dep investigation
+    "READ_KB",      # reading knowledge base files (knowledge/ dir)
+    "READ_SKILL",   # invoking a SkillsJars skill (Skill tool call)
+    "JAR_INSPECT",  # jar tf — agent spelunking .m2 to find classes/imports
+    "WRITE",        # writing test files (first time)
+    "BUILD",        # ./mvnw clean test jacoco:report — actual test execution
+    "VERIFY",       # reading back JaCoCo report to confirm coverage %
+    "FIX",          # editing test files after a failure
 ]
 
-# CUSTOMIZE: per-state colors (optional — defaults to tab10 palette)
 COLORS = {
-    # "EXPLORE": "#4C72B0",
-    # "READ_KB": "#55A868",
-    # "WRITE":   "#C44E52",
-    # "BUILD":   "#8172B2",
-    # "VERIFY":  "#CCB974",
-    # "FIX":     "#DD8452",
+    "EXPLORE":     "#4C72B0",
+    "READ_KB":     "#55A868",
+    "READ_SKILL":  "#29a8ab",
+    "JAR_INSPECT": "#937860",
+    "WRITE":       "#2ca02c",
+    "BUILD":       "#8172B2",
+    "VERIFY":      "#CCB974",
+    "FIX":         "#C44E52",
 }
 
-# CUSTOMIZE: display order for variant names in charts
 VARIANT_ORDER = [
-    "control",
-    "variant-a",
-    "variant-b",
-    "variant-c",
-    "variant-d",
+    "simple",
+    "hardened",
+    "hardened+kb",
+    "hardened+skills",
+    "hardened+skills+sae",
+    "hardened+skills+sae+forge",
 ]
 
-# CUSTOMIZE: cluster definitions for cluster% computation
-# Maps cluster label → list of state names in that cluster
-# High FIX_LOOP % = agent thrashing; high PRODUCTIVE % = forward progress
+# FIX_LOOP: rework cluster — agent retrying after test failure
+# JAR_INSPECT_CLUSTER: framework-friction cluster — agent spelunking .m2 to find imports
+#   This is addressable by KB: if KB provides correct Spring test annotations/imports,
+#   the agent never needs to inspect jars.
+# PRODUCTIVE: forward-progress — writing and running tests for the first time
 CLUSTER_DEFINITIONS = {
-    "FIX_LOOP":   ["FIX", "VERIFY"],     # rework cluster — identifies thrashing
-    "PRODUCTIVE": ["WRITE", "BUILD"],    # forward-progress cluster
-    # "JAR_INSPECT": ["EXPLORE"],        # example: narrow to JAR-reading substate
+    "FIX_LOOP":        ["FIX", "BUILD"],   # rework cycle: edit → rebuild
+    "PRODUCTIVE":      ["WRITE"],          # forward progress: writing tests
+    "JAR_INSPECT":     ["JAR_INSPECT"],    # framework friction: addressable by KB
 }
 
-# CUSTOMIZE: variant pairs for intervention delta heatmaps
-# Format: (variant_a, variant_b, "label") — heatmap shows P_b - P_a
 DELTA_PAIRS = [
-    ("control", "variant-a", "Effect of hardened prompt"),
-    # ("variant-a", "variant-b", "Effect of KB"),
-    # ("variant-b", "variant-c", "Effect of full KB"),
-    # ("variant-a", "variant-d", "Effect of forge plan/act"),
+    ("simple",    "hardened",    "Effect of hardened prompt"),
+    ("hardened",  "hardened+kb", "Effect of KB"),
+    ("hardened",  "hardened+skills", "Effect of skills"),
+    ("hardened+kb", "hardened+skills", "KB vs skills"),
 ]
 
-# CUSTOMIZE: human-readable labels for each variant (used in findings.md)
 NOTE_MAP = {
-    "control":   "Minimal instructions — baseline",
-    # "variant-a": "Hardened prompt",
-    # "variant-b": "Hardened prompt + KB",
+    "simple":                  "Minimal prompt — baseline",
+    "hardened":                "Hardened prompt + stopping condition",
+    "hardened+kb":             "Hardened + flat KB injection",
+    "hardened+skills":         "Hardened + SkillsJars (structured KB)",
+    "hardened+skills+sae":     "Hardened + skills + SAE pre-analysis",
+    "hardened+skills+sae+forge": "Two-phase: explore → act",
 }
 
 # ---------------------------------------------------------------------------
@@ -138,7 +143,11 @@ def classify_state(tool_name: str, target: str) -> str | None:
                       "exitplanmode", "enterplanmode"):
         return None
 
-    # Agent subagent calls — Explore subagents = EXPLORE, others = EXPLORE
+    # Skill tool — agent invoking a SkillsJars skill
+    if tool_lower == "skill":
+        return "READ_SKILL"
+
+    # Agent subagent calls — counts as exploration overhead
     if tool_lower == "agent":
         return "EXPLORE"
 
@@ -163,12 +172,41 @@ def classify_state(tool_name: str, target: str) -> str | None:
     if tool_lower in ("glob", "grep"):
         return "EXPLORE"
 
-    # Bash commands
+    # Bash commands — distinguish by what the command is actually doing
     if tool_lower == "bash":
-        # CUSTOMIZE: distinguish build/test commands from verification/discovery
-        # Example: if "mvn" in target_lower or "gradle" in target_lower: return "BUILD"
-        # Example: if "ls " in target_lower or "find " in target_lower: return "EXPLORE"
-        return "BUILD"
+        # JAR inspection: agent reading .m2 jars to discover classes/imports
+        # Signal: agent doesn't know test framework imports — addressable by KB
+        if "jar tf" in target_lower or "jar -tf" in target_lower or "jar --list" in target_lower:
+            return "JAR_INSPECT"
+
+        # Actual test execution: the real BUILD state
+        # Matches: ./mvnw clean test, ./mvnw test jacoco:report, ./mvnw verify, ./gradlew test
+        if any(x in target_lower for x in (
+            "mvnw clean", "mvnw test", "mvnw verify", "mvnw package",
+            "gradlew test", "gradlew build", "gradlew check",
+            "jacoco:report", "mvn test", "mvn verify",
+        )):
+            return "BUILD"
+
+        # Coverage/result verification: reading back output to confirm success
+        if any(x in target_lower for x in (
+            "jacoco", "index.html", "coverage", "surefire-reports",
+        )):
+            return "VERIFY"
+
+        # Filesystem and dependency exploration: not a real build
+        if any(x in target_lower for x in (
+            "ls ", "find ", "tree ", "cat ", "echo ", "pwd",
+            "dependency:tree", "dep:tree", "find /home/mark/.m2",
+        )):
+            return "EXPLORE"
+
+        # Scaffolding (mkdir, cp, mv) — exclude: not semantically interesting
+        if any(x in target_lower for x in ("mkdir", "cp ", "mv ", "chmod", "touch ")):
+            return None
+
+        # Default bash: treat as EXPLORE (grep, sed, awk, etc.)
+        return "EXPLORE"
 
     return "EXPLORE"  # default
 

@@ -4,3 +4,7 @@ knowledge/
 .DS_Store
 target/
 data/curated/
+analysis/
+docs/figures/
+scripts/.venv/
+**/__pycache__/
