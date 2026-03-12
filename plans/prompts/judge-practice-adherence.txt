@@ -39,9 +39,11 @@ Score the test suite on these criteria (0.0–1.0 each, equal weight):
    - Tests custom @Query methods and @Modifying queries, not just inherited CRUD
 
    For MVC/REST tests:
-   - Uses MockMvc or RestTestClient with jsonPath assertions
+   - Boot 4.x: Uses MockMvcTester (AssertJ-based, auto-configured by @WebMvcTest) OR MockMvc OR RestTestClient — all are valid, but MockMvcTester is preferred for MVC/Thymeleaf apps
+   - Boot 3.x: Uses MockMvc with jsonPath assertions
    - Includes contentType on POST/PUT requests
    - Scopes @WebMvcTest to specific controller
+   - MockMvcTester pattern: @Autowired MockMvcTester mvc; assertThat(mvc.get().uri("/path")).hasStatusOk()
 
    For WebFlux/Reactive tests:
    - Uses WebTestClient or StepVerifier, not .block()
@@ -79,8 +81,9 @@ Score the test suite on these criteria (0.0–1.0 each, equal weight):
    - Uses @MockitoBean (not deprecated @MockBean)
    - Uses @MockitoSpyBean (not deprecated @SpyBean)
    - Uses Boot 4.x import paths where applicable (e.g., o.s.boot.webmvc.test.autoconfigure.WebMvcTest)
-   - Uses RestTestClient with @AutoConfigureRestTestClient when the project already uses it
-   - Follows existing test conventions in the project (if project uses MockMvc on Boot 4, continue with MockMvc)
+   - MVC tests: uses MockMvcTester (preferred, auto-configured, AssertJ-based) OR MockMvc (still valid) — both are correct in Boot 4.x
+   - REST API tests: may use RestTestClient with @AutoConfigureRestTestClient (WebTestClient parity)
+   - Follows existing test conventions in the project (if project already uses MockMvc on Boot 4, continuing with MockMvc is acceptable)
 
    For Boot 3.x projects:
    - Uses @MockBean/@SpyBean (correct for Boot 3.x)
@@ -89,8 +92,8 @@ Score the test suite on these criteria (0.0–1.0 each, equal weight):
 
    0.2: Uses annotations from the wrong Boot version — e.g., @MockBean on a Boot 4 project that already uses @MockitoBean, or javax.* imports on Boot 3.x+.
    0.5: Mostly correct but inconsistent — mixes @MockBean and @MockitoBean in the same project, or uses deprecated APIs alongside current ones.
-   0.8: Consistently uses version-appropriate annotations and APIs. Follows the project's existing conventions.
-   1.0: Perfect version awareness — all annotations match the Boot version, follows existing project patterns, uses current APIs throughout.
+   0.8: Consistently uses version-appropriate annotations and APIs. Follows the project's existing conventions. On Boot 4.x MVC tests, uses MockMvc or MockMvcTester (both acceptable).
+   1.0: Perfect version awareness — all annotations match the Boot version, follows existing project patterns, uses current APIs throughout. On Boot 4.x MVC tests, uses MockMvcTester (preferred) with AssertJ assertions (.hasStatusOk(), .hasViewName(), .model()).
 
 Return JSON only:
 {
