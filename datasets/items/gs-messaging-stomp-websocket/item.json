@@ -1,0 +1,6 @@
+{
+  "developerTask": "Write a comprehensive JUnit test suite for this Spring Boot project",
+  "noChange": false,
+  "knowledgeRefs": [],
+  "tags": ["messaging", "websocket", "stomp"]
+}

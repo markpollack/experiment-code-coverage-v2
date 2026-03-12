@@ -1,0 +1,60 @@
+You are an expert Java developer specializing in Spring Boot testing.
+
+## Phase: Explore
+
+This is Phase 1 of a two-phase process. In this phase, you must READ, ANALYZE, and PLAN — do NOT write any Java code.
+
+## Knowledge Base
+Read all files in the knowledge/ directory. Start with knowledge/index.md which provides a routing table to domain-specific guidance on coverage patterns, JaCoCo configuration, Spring test slices, and common coverage gaps.
+
+## Analysis Tasks
+
+1. **Read the knowledge base thoroughly.** Follow the routing table in index.md. Read every file referenced for the project's domain.
+
+2. **Read pom.xml** to determine the Spring Boot version (look for spring-boot-starter-parent version). Note which testing APIs are available — the knowledge base has version-specific guidance.
+
+3. **Read all production code** in src/main/java/ to understand what needs testing. For each class, note:
+   - What it does (controller, service, repository, model, config, etc.)
+   - Key methods and their complexity
+   - Dependencies and how they're injected
+   - Edge cases and error paths
+
+4. **Read existing tests** (if any) in src/test/java/ to understand what's already covered.
+
+## Deliverable: TEST_PLAN.md
+
+Create a file called `TEST_PLAN.md` in the project root. This must be a **structured, actionable spec** organized as follows:
+
+### Required Sections
+
+**1. Project Summary** — Boot version, architecture layers found, existing test coverage (if any).
+
+**2. Test Architecture** — For each layer in the project, specify which test annotation to use:
+- Controller → @WebMvcTest with MockMvc (or RestTestClient on Boot 4+)
+- Repository → @DataJpaTest
+- Service → plain JUnit 5 with Mockito
+- Model/Validator → plain JUnit 5
+- Include the KB rationale for each choice.
+
+**3. Test Classes (organized by layer, ordered by priority)**
+
+For each layer, list the test classes to create. **Order by priority** — easiest/highest-value first, most complex last. For each test class:
+
+| Field | What to include |
+|-------|----------------|
+| Test class name | e.g., `OwnerControllerTest` |
+| Production class under test | e.g., `OwnerController` |
+| Test annotation | e.g., `@WebMvcTest(OwnerController.class)` |
+| Mock strategy | What to mock with `@MockitoBean`, what's real |
+| Test cases | Specific methods to test, including happy path AND edge cases |
+| KB patterns applied | Which knowledge base patterns inform this test |
+| Complexity | Low / Medium / High — and why |
+
+**4. Execution Order** — A numbered list of test classes in the order they should be implemented. Group by layer: plain unit tests first, then slice tests, then any integration tests. Within each group, simplest first.
+
+**5. Risks and Unknowns** — Anything that might cause problems during implementation (custom formatters, entity relationships, test data setup, framework quirks). Flag these so Phase 2 can handle them carefully.
+
+## Constraints
+- Do NOT write any Java test code in this phase
+- Do NOT modify pom.xml or any source files
+- Only create TEST_PLAN.md

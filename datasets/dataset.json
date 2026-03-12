@@ -1,0 +1,56 @@
+{
+  "schemaVersion": 1,
+  "name": "spring-guides-coverage",
+  "description": "5 Spring Getting Started guides for code coverage improvement benchmarking",
+  "version": "1.0.0",
+  "items": [
+    {
+      "id": "gs-rest-service",
+      "slug": "gs-rest-service",
+      "path": "items/gs-rest-service",
+      "bucket": "A",
+      "taskType": "coverage-improvement",
+      "status": "active"
+    },
+    {
+      "id": "gs-accessing-data-jpa",
+      "slug": "gs-accessing-data-jpa",
+      "path": "items/gs-accessing-data-jpa",
+      "bucket": "A",
+      "taskType": "coverage-improvement",
+      "status": "active"
+    },
+    {
+      "id": "gs-securing-web",
+      "slug": "gs-securing-web",
+      "path": "items/gs-securing-web",
+      "bucket": "A",
+      "taskType": "coverage-improvement",
+      "status": "active"
+    },
+    {
+      "id": "gs-reactive-rest-service",
+      "slug": "gs-reactive-rest-service",
+      "path": "items/gs-reactive-rest-service",
+      "bucket": "A",
+      "taskType": "coverage-improvement",
+      "status": "active"
+    },
+    {
+      "id": "gs-messaging-stomp-websocket",
+      "slug": "gs-messaging-stomp-websocket",
+      "path": "items/gs-messaging-stomp-websocket",
+      "bucket": "A",
+      "taskType": "coverage-improvement",
+      "status": "active"
+    },
+    {
+      "id": "spring-petclinic",
+      "slug": "spring-petclinic",
+      "path": "items/spring-petclinic",
+      "bucket": "B",
+      "taskType": "coverage-improvement",
+      "status": "active"
+    }
+  ]
+}

@@ -1,0 +1,6 @@
+Write JUnit tests for this Spring Boot project. There are no existing tests. Target at least 80% line coverage.
+
+## Done When
+Run `./mvnw clean test jacoco:report` and check `target/site/jacoco/index.html`. You are done when:
+- All tests pass (zero failures, zero errors)
+- Line coverage reported by JaCoCo is >= 80%
