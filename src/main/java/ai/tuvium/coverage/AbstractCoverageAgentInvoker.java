@@ -100,7 +100,14 @@ public abstract class AbstractCoverageAgentInvoker implements AgentInvoker {
 						"Skills installation reported success but no skill directories found in ~/.claude/skills/. "
 								+ "Check SkillsInstaller logs above. Aborting to avoid running agent without skills.");
 			}
-			logger.info("Step 4b: Skills verified present in ~/.claude/skills/");
+			Path skillsDir = Path.of(System.getProperty("user.home"), ".claude", "skills");
+			try (var stream = Files.list(skillsDir)) {
+				stream.map(p -> p.getFileName().toString())
+						.sorted()
+						.forEach(name -> logger.info("Step 4b: Installed skill: {}", name));
+			} catch (IOException e) {
+				logger.warn("Step 4b: Could not list skills dir: {}", e.getMessage());
+			}
 			skillsWereInstalled = true;
 		}
 
