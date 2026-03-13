@@ -3,14 +3,22 @@ ETL: Load experiment result JSON files into DuckDB-queryable parquet.
 
 Supports the session layout: results/{experiment}/sessions/{session}/{variant}.json
 
+## Single-run mode (default)
 Multiple sessions can be combined — later sessions override earlier ones
 per variant (last-write-wins), so you can assemble best-of results from
 separate runs.
+
+## Multi-run mode (--multi-run)
+All runs of the same item are kept. Each run gets a run_index (1, 2, 3...)
+assigned by session load order. Enables k-fold cross-validation for Markov
+chain analysis: fit transition matrix on N-1 runs, predict step count for
+the Nth. Required for out-of-sample validation of the fundamental matrix.
 
 Usage:
     python scripts/load_results.py --experiment my-experiment
     python scripts/load_results.py --experiment my-experiment --session 20260304-042311
     python scripts/load_results.py --experiment my-experiment --session s1 --session s2
+    python scripts/load_results.py --experiment my-experiment --session s1 --session s2 --session s3 --multi-run
     python scripts/load_results.py --experiment my-experiment --output-dir /tmp/parquet
 """
 
@@ -87,12 +95,18 @@ def extract_runs(results: dict[str, dict], run_group: str, model: str) -> list[d
     return rows
 
 
-def extract_item_results(results: dict[str, dict]) -> list[dict]:
+def extract_item_results(results: dict[str, dict],
+                         run_index_map: dict[tuple, int] | None = None) -> list[dict]:
+    """Extract per-item result rows.
+
+    run_index_map: optional dict mapping (variant, item_slug) -> run_index.
+    When provided (multi-run mode), adds a run_index column so k-fold CV
+    can split by run rather than by item.
+    """
     rows = []
     for variant, data in results.items():
         run_id = data["experimentId"]
         for item in data["items"]:
-            inv_meta = item.get("invocationResult", {}).get("metadata", {})
             inv = item.get("invocationResult", {})
             scores = item.get("scores", {})
             metrics = item.get("metrics", {})
@@ -111,6 +125,9 @@ def extract_item_results(results: dict[str, dict]) -> list[dict]:
                 "phase_count": len(inv.get("phases", [])),
             }
 
+            if run_index_map is not None:
+                row["run_index"] = run_index_map.get((variant, item["itemSlug"]), 1)
+
             # Map scores to named columns (CUSTOMIZE: update SCORE_MAP above)
             for json_key, col_name in SCORE_MAP.items():
                 row[col_name] = scores.get(json_key)
@@ -119,8 +136,14 @@ def extract_item_results(results: dict[str, dict]) -> list[dict]:
     return rows
 
 
-def extract_tool_uses(results: dict[str, dict]) -> list[dict]:
-    """Extract per-tool-use rows from phase data for Markov analysis."""
+def extract_tool_uses(results: dict[str, dict],
+                      run_index_map: dict[tuple, int] | None = None) -> list[dict]:
+    """Extract per-tool-use rows from phase data for Markov analysis.
+
+    run_index_map: optional dict mapping (variant, item_slug) -> run_index.
+    When provided (multi-run mode), adds a run_index column so Markov analysis
+    can group tool-call sequences by run for k-fold cross-validation.
+    """
     rows = []
     for variant, data in results.items():
         run_id = data["experimentId"]
@@ -132,7 +155,7 @@ def extract_tool_uses(results: dict[str, dict]) -> list[dict]:
                 for i, tool in enumerate(phase.get("toolUses", [])):
                     tool_input = tool.get("input", {})
                     target = _tool_target(tool["name"], tool_input)
-                    rows.append({
+                    row = {
                         "run_id": run_id,
                         "variant": variant,
                         "item_id": item["itemSlug"],
@@ -141,7 +164,10 @@ def extract_tool_uses(results: dict[str, dict]) -> list[dict]:
                         "global_seq": global_seq,
                         "tool_name": tool["name"],
                         "tool_target": target,
-                    })
+                    }
+                    if run_index_map is not None:
+                        row["run_index"] = run_index_map.get((variant, item["itemSlug"]), 1)
+                    rows.append(row)
                     global_seq += 1
     return rows
 
@@ -230,27 +256,48 @@ def write_parquet(rows: list[dict], table_name: str, output_path: Path):
     con.close()
 
 
-def merge_variant(results: dict, variant: str, data: dict, source: str):
-    """Merge variant data at the item level — later items override by slug."""
+def merge_variant(results: dict, variant: str, data: dict, source: str,
+                  multi_run: bool = False):
+    """Merge variant data at the item level.
+
+    single-run mode (default): later items override by slug (last-write-wins).
+      Use when assembling best-of results from re-runs of the same variant.
+
+    multi-run mode (--multi-run): accumulate all runs of the same item.
+      Use for N=3 sweeps where the same item is run multiple times to enable
+      k-fold cross-validation and variance estimation.
+    """
     if variant not in results:
         results[variant] = data
         print(f"  {variant}: {len(data['items'])} items ({source})")
         return
+
     existing = results[variant]
-    item_map = {item["itemSlug"]: item for item in existing["items"]}
-    new_slugs = []
-    for item in data["items"]:
-        slug = item["itemSlug"]
-        if slug not in item_map:
-            new_slugs.append(slug)
-        item_map[slug] = item
-    existing["items"] = list(item_map.values())
-    items = existing["items"]
+
+    if multi_run:
+        # Accumulate — keep all runs, including duplicates of the same slug
+        existing["items"].extend(data["items"])
+        items = existing["items"]
+        print(f"  {variant}: +{len(data['items'])} items ({source}) → {len(items)} total")
+    else:
+        # Last-write-wins per slug
+        item_map = {item["itemSlug"]: item for item in existing["items"]}
+        new_slugs = []
+        for item in data["items"]:
+            slug = item["itemSlug"]
+            if slug not in item_map:
+                new_slugs.append(slug)
+            item_map[slug] = item
+        existing["items"] = list(item_map.values())
+        items = existing["items"]
+        print(f"  {variant}: +{len(data['items'])} items ({source}) → {len(items)} total"
+              + (f" (new: {new_slugs})" if new_slugs else ""))
+
     existing["passRate"] = sum(1 for i in items if i["passed"]) / len(items) if items else 0
     existing["totalCostUsd"] = sum(i["costUsd"] for i in items)
     existing["totalDurationMs"] = sum(i.get("durationMs", 0) for i in items)
-    print(f"  {variant}: +{len(data['items'])} items ({source}) → {len(items)} total"
-          + (f" (new: {new_slugs})" if new_slugs else ""))
+
+
 
 
 def main():
@@ -265,34 +312,78 @@ def main():
                         help="Output directory for parquet files (default: data/curated/)")
     parser.add_argument("--model", default="claude-sonnet-4-6",
                         help="Model name to record in runs table")
+    parser.add_argument("--multi-run", action="store_true",
+                        help="N>1 mode: keep all runs of the same item (adds run_index column). "
+                             "Sessions must be passed with --session in run order (s1, s2, s3). "
+                             "Use for k-fold Markov validation.")
     args = parser.parse_args()
 
     results_dir = args.results_dir or (PROJECT_ROOT / "results" / args.experiment)
     output_dir = args.output_dir or (PROJECT_ROOT / "data" / "curated")
     output_dir.mkdir(parents=True, exist_ok=True)
 
-    merged: dict[str, dict] = {}
+    # ---- Multi-run mode: extract per-session, assign run_index by position ----
+    if args.multi_run:
+        if not args.sessions:
+            parser.error("--multi-run requires at least one --session")
 
-    if args.sessions:
-        for session_name in args.sessions:
-            print(f"Loading session: {session_name}")
+        all_item_rows: list[dict] = []
+        all_tool_rows: list[dict] = []
+        all_run_rows: list[dict] = []
+        all_judge_rows: list[dict] = []
+
+        for run_idx, session_name in enumerate(args.sessions, start=1):
+            print(f"Loading session {run_idx}/{len(args.sessions)}: {session_name}")
             session_results = load_session_results(results_dir, session_name)
-            for variant, data in session_results.items():
-                merge_variant(merged, variant, data, session_name)
+            # run_index_map: all items in this session get run_index = run_idx
+            run_index_map = {
+                (variant, item["itemSlug"]): run_idx
+                for variant, data in session_results.items()
+                for item in data["items"]
+            }
+            all_item_rows.extend(extract_item_results(session_results, run_index_map))
+            all_tool_rows.extend(extract_tool_uses(session_results, run_index_map))
+            all_run_rows.extend(extract_runs(session_results, session_name, args.model))
+            all_judge_rows.extend(extract_judge_details(session_results))
+
+        variants = sorted({r["variant"] for r in all_item_rows})
+        print(f"Variants: {variants}")
+        print(f"Total items: {len(all_item_rows)}, tool uses: {len(all_tool_rows)}")
+
+        print("\nWriting parquet files (multi-run):")
+        write_parquet(all_run_rows, "runs", output_dir / "runs.parquet")
+        write_parquet(all_item_rows, "item_results", output_dir / "item_results.parquet")
+        write_parquet(all_tool_rows, "tool_uses", output_dir / "tool_uses.parquet")
+        write_parquet(all_judge_rows, "judge_details", output_dir / "judge_details.parquet")
+
+    # ---- Single-run mode: merge sessions, last-write-wins per slug ----
     else:
-        session_name = find_latest_session(results_dir)
-        print(f"Loading session: {session_name} (latest)")
-        merged = load_session_results(results_dir, session_name)
+        merged: dict[str, dict] = {}
 
-    run_group = args.sessions[-1] if args.sessions else "latest"
-    variants = sorted(merged.keys())
-    print(f"Variants: {variants}")
+        if args.sessions:
+            for session_name in args.sessions:
+                print(f"Loading session: {session_name}")
+                session_results = load_session_results(results_dir, session_name)
+                for variant, data in session_results.items():
+                    merge_variant(merged, variant, data, session_name)
+        else:
+            session_name = find_latest_session(results_dir)
+            print(f"Loading session: {session_name} (latest)")
+            merged = load_session_results(results_dir, session_name)
 
-    print("\nWriting parquet files:")
-    write_parquet(extract_runs(merged, run_group, args.model), "runs", output_dir / "runs.parquet")
-    write_parquet(extract_item_results(merged), "item_results", output_dir / "item_results.parquet")
-    write_parquet(extract_tool_uses(merged), "tool_uses", output_dir / "tool_uses.parquet")
-    write_parquet(extract_judge_details(merged), "judge_details", output_dir / "judge_details.parquet")
+        run_group = args.sessions[-1] if args.sessions else "latest"
+        variants = sorted(merged.keys())
+        print(f"Variants: {variants}")
+
+        print("\nWriting parquet files:")
+        write_parquet(extract_runs(merged, run_group, args.model), "runs",
+                      output_dir / "runs.parquet")
+        write_parquet(extract_item_results(merged), "item_results",
+                      output_dir / "item_results.parquet")
+        write_parquet(extract_tool_uses(merged), "tool_uses",
+                      output_dir / "tool_uses.parquet")
+        write_parquet(extract_judge_details(merged), "judge_details",
+                      output_dir / "judge_details.parquet")
 
     print("\nVerification:")
     con = duckdb.connect()

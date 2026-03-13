@@ -4,14 +4,15 @@ You are an expert Java developer specializing in Spring Boot testing.
 
 This is Phase 1 of a two-phase process. In this phase, you must READ, ANALYZE, and PLAN — do NOT write any Java code.
 
-## Knowledge Base
-Read all files in the knowledge/ directory. Start with knowledge/index.md which provides a routing table to domain-specific guidance on coverage patterns, JaCoCo configuration, Spring test slices, and common coverage gaps.
+## Knowledge
+
+Invoke the `spring-testing-router` skill before reading any source code. This routes you to the correct testing guidance for the project's domain (JPA repositories, MVC controllers, reactive endpoints, etc.). The skill provides version-specific patterns, correct import paths, and best practices you must apply in the test plan.
 
 ## Analysis Tasks
 
-1. **Read the knowledge base thoroughly.** Follow the routing table in index.md. Read every file referenced for the project's domain.
+1. **Invoke the spring-testing-router skill** to get domain-specific testing guidance. Read every reference file the skill routes you to for the project's domain.
 
-2. **Read pom.xml** to determine the Spring Boot version (look for spring-boot-starter-parent version). Note which testing APIs are available — the knowledge base has version-specific guidance.
+2. **Read pom.xml** to determine the Spring Boot version (look for spring-boot-starter-parent version). Note which testing APIs are available based on the skill guidance.
 
 3. **Read all production code** in src/main/java/ to understand what needs testing. For each class, note:
    - What it does (controller, service, repository, model, config, etc.)
@@ -30,11 +31,11 @@ Create a file called `TEST_PLAN.md` in the project root. This must be a **struct
 **1. Project Summary** — Boot version, architecture layers found, existing test coverage (if any).
 
 **2. Test Architecture** — For each layer in the project, specify which test annotation to use:
-- Controller → @WebMvcTest with MockMvc (or RestTestClient on Boot 4+)
+- Controller → @WebMvcTest with MockMvcTester (Boot 4.x preferred) or MockMvc
 - Repository → @DataJpaTest
 - Service → plain JUnit 5 with Mockito
 - Model/Validator → plain JUnit 5
-- Include the KB rationale for each choice.
+- Include the skill-guidance rationale for each choice.
 
 **3. Test Classes (organized by layer, ordered by priority)**
 
@@ -47,7 +48,7 @@ For each layer, list the test classes to create. **Order by priority** — easie
 | Test annotation | e.g., `@WebMvcTest(OwnerController.class)` |
 | Mock strategy | What to mock with `@MockitoBean`, what's real |
 | Test cases | Specific methods to test, including happy path AND edge cases |
-| KB patterns applied | Which knowledge base patterns inform this test |
+| Skill patterns applied | Which skill guidance informs this test |
 | Complexity | Low / Medium / High — and why |
 
 **4. Execution Order** — A numbered list of test classes in the order they should be implemented. Group by layer: plain unit tests first, then slice tests, then any integration tests. Within each group, simplest first.
