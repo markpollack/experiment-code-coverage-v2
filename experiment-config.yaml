@@ -29,6 +29,11 @@ variants:
     knowledgeFiles: []
     skillsInstall: true
 
+  - name: hardened+sae
+    promptFile: plans/prompts/v1-hardened-sae.txt
+    knowledgeDir: null
+    knowledgeFiles: []
+
   - name: hardened+skills+sae
     promptFile: plans/prompts/v1-hardened-sae.txt
     knowledgeDir: null
