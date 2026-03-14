@@ -94,6 +94,16 @@ Same model. Same codebase. Same task. One agent ran the build 22 times.
 The other ran it 8 times and finished much more cleanly.
 The spiral run cost 63\% more and took 43 minutes instead of 26.
 
+\begin{figure}[H]
+\centering
+\includegraphics[width=\textwidth]{../figures/cost-steps-comparison.png}
+\caption{Mean cost (USD) and mean step count per variant across all runs.
+         Red bar = the spiral variant (forge). Blue = all others.
+         Error bars show standard deviation across N=3 runs per variant.
+         The forge variant has the highest variance --- it can be the best or worst run
+         depending on whether the agent hits a rework spiral.}
+\end{figure}
+
 Why? What happened inside that agent during those 22 build attempts?
 That is what this document is trying to explain.
 
@@ -159,9 +169,12 @@ This is the \textbf{transition probability matrix}, visualized as a heatmap.
 \begin{figure}[H]
 \centering
 \includegraphics[width=\textwidth]{../figures/transition-probability-matrix.png}
-\caption{Transition probability matrices for all 7 variants.
-         The diagonal shows how much time agents spend in each state.
-         The off-diagonal bright cells show the major mode switches.}
+\caption{Overview: transition probability matrices for all 7 variants.
+         Yellow = low probability, orange = medium, dark red = high.
+         A bright diagonal cell means the agent \emph{stays} in that state.
+         A bright off-diagonal cell means a mode switch.
+         The full-size per-variant heatmaps in the following sections
+         show each cluster in detail.}
 \end{figure}
 
 \subsection*{Reading the story}
@@ -205,8 +218,28 @@ So it does the programmer's last resort: decompile JARs from the
 \texttt{\textasciitilde/.m2} Maven cache, reading binary class files to find the class name.
 
 \textbf{What the heatmap shows}:
-A high diagonal on JAR\_INSPECT --- the agent inspects one JAR, finds a clue,
-inspects another JAR. High probability of staying in the cluster.
+A high diagonal on JAR\_INSPECT means the agent inspects one JAR, finds a clue,
+then inspects another JAR. It stays in the cluster.
+Look at the \texttt{hardened} heatmap below: the JAR\_INSPECT row has a strong red cell
+on its own diagonal --- once in this cluster, the agent keeps searching.
+Compare to \texttt{hardened+skills}: that whole row is pale --- the agent never enters it.
+
+\begin{figure}[H]
+\centering
+\begin{minipage}[t]{0.48\textwidth}
+  \includegraphics[width=\textwidth]{../figures/heatmap-hardened.png}
+  \caption*{\textbf{hardened}: JAR\_INSPECT diagonal is bright red (high self-loop).
+            11\% of all steps are JAR inspection.}
+\end{minipage}\hfill
+\begin{minipage}[t]{0.48\textwidth}
+  \includegraphics[width=\textwidth]{../figures/heatmap-hardened-skills.png}
+  \caption*{\textbf{hardened+skills}: JAR\_INSPECT row is nearly white.
+            Skills provide the import directly --- no searching needed (1\%).}
+\end{minipage}
+\caption{JAR\_INSPECT cluster before and after knowledge injection.
+         The diagonal self-loop (agent stays in JAR\_INSPECT) disappears completely
+         when the knowledge base answers the import question directly.}
+\end{figure}
 
 \textbf{The paradox}:
 Adding a hardened prompt \emph{increases} JAR searching (11\% vs 7\% for simple).
@@ -265,9 +298,30 @@ seems to produce more thorough initial test writing ---
 but when that writing hits a compilation problem, the agent retries aggressively.
 
 \textbf{What the heatmap shows}:
-The FIX/BUILD loop appears as mutual high probability between BUILD and FIX rows:
+The FIX/BUILD loop appears as mutual high probability between BUILD and FIX rows.
 $P(\text{BUILD} \to \text{FIX})$ and $P(\text{FIX} \to \text{BUILD})$ are both elevated
-in variants with high rework rates.
+in variants with high rework.
+Compare the forge variant (the spiral) to the cleanest variant below:
+
+\begin{figure}[H]
+\centering
+\begin{minipage}[t]{0.48\textwidth}
+  \includegraphics[width=\textwidth]{../figures/heatmap-hardened-skills-sae-forge.png}
+  \caption*{\textbf{hardened+skills+sae+forge} (spiral variant):
+            BUILD$\to$FIX and FIX$\to$BUILD cells are both orange/red.
+            The agent bounces between them. r14: 22 builds, \$5.67.}
+\end{minipage}\hfill
+\begin{minipage}[t]{0.48\textwidth}
+  \includegraphics[width=\textwidth]{../figures/heatmap-hardened-skills-sae.png}
+  \caption*{\textbf{hardened+skills+sae} (clean variant):
+            FIX$\to$BUILD cell is dimmer. Fewer rework cycles.
+            r17: 8 builds, \$3.49.}
+\end{minipage}
+\caption{The FIX/BUILD rework loop in the heatmap.
+         Bright mutual probability between BUILD and FIX rows = the agent is cycling.
+         The forge variant's two-phase design produces more aggressive rework when
+         compilation fails; the \texttt{hardened+skills+sae} variant exits the loop sooner.}
+\end{figure}
 
 \subsection{The PRODUCTIVE Flow --- What We Want More Of}
 
@@ -284,13 +338,28 @@ Fewer FIX/BUILD loops follow.
 The step-count difference between simple (109 steps) and hardened+skills+sae (75 steps)
 is not abstract --- it is specific transitions that shifted.
 
+The Sankey diagram makes the difference visceral.
+Arc width = transition frequency. Fat arcs into JAR\_INSPECT or between FIX and BUILD
+are money being spent on friction and rework.
+
 \begin{figure}[H]
 \centering
-\includegraphics[width=\textwidth]{../figures/sankey-flow-comparison.png}
-\caption{Sankey flow comparison. Arc width = transition frequency.
-         Wide arcs into JAR\_INSPECT = knowledge friction.
-         Wide arcs between FIX and BUILD = rework spiral.
-         A clean Sankey flows straight: EXPLORE to WRITE to BUILD to VERIFY.}
+\begin{minipage}[t]{0.48\textwidth}
+  \includegraphics[width=\textwidth]{../figures/sankey-flow-hardened+skills+sae+forge.png}
+  \caption*{\textbf{Inefficient}: hardened+skills+sae+forge.
+            Wide FIX$\leftrightarrow$BUILD arcs dominate.
+            Worst run (r14): 22 builds, \$5.67, 43 min.}
+\end{minipage}\hfill
+\begin{minipage}[t]{0.48\textwidth}
+  \includegraphics[width=\textwidth]{../figures/sankey-flow-hardened+skills+sae.png}
+  \caption*{\textbf{Efficient}: hardened+skills+sae.
+            Flow goes straight: EXPLORE $\to$ WRITE $\to$ BUILD $\to$ VERIFY.
+            Best run (r17): 8 builds, \$3.49, 26 min.}
+\end{minipage}
+\caption{The 63\% cost gap made visible. Same model, same task, same codebase.
+         Left: agent spirals in the FIX/BUILD loop.
+         Right: agent flows forward. Arc width is proportional to transition count ---
+         the thick reciprocal arc between BUILD and FIX on the left is the spiral.}
 \end{figure}
 
 %% ============================================================

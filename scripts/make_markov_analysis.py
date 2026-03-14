@@ -31,6 +31,8 @@ import matplotlib
 matplotlib.use("Agg")
 
 from markov_agent_analysis import MarkovAnalysisPipeline
+from markov_agent_analysis.transitions import apply_classify, build_transition_counts, normalize_to_probability_matrix
+from markov_agent_analysis.figures import make_single_transition_matrix
 
 # ---------------------------------------------------------------------------
 # Paths
@@ -259,6 +261,78 @@ if __name__ == "__main__":
         enable_sankey=True,
     )
     pipeline.run(tools, items)
+
+    # Generate cost/steps bar chart — the "money shot"
+    print("\nGenerating cost vs steps bar chart...")
+    import matplotlib.pyplot as plt
+    import matplotlib
+    matplotlib.use("Agg")
+    import duckdb
+    con = duckdb.connect()
+    cost_df = con.execute(f"""
+        SELECT variant,
+               round(avg(cost_usd), 4)      AS mean_cost,
+               round(stddev(cost_usd), 4)   AS std_cost,
+               round(avg(phase_count), 1)   AS mean_steps
+        FROM '{DATA_DIR}/item_results.parquet'
+        GROUP BY variant ORDER BY variant
+    """).df()
+    con.close()
+    ordered = [v for v in VARIANT_ORDER if v in cost_df["variant"].values]
+    cost_df = cost_df.set_index("variant").loc[ordered].reset_index()
+
+    fig, axes = plt.subplots(1, 2, figsize=(12, 5))
+    plt.rcParams.update({"font.family": "serif", "font.size": 10})
+
+    bar_colors = ["#C44E52" if "forge" in v else "#4C72B0" for v in cost_df["variant"]]
+
+    ax = axes[0]
+    bars = ax.bar(range(len(cost_df)), cost_df["mean_cost"], color=bar_colors,
+                  yerr=cost_df["std_cost"], capsize=4, edgecolor="white", linewidth=0.5)
+    ax.set_xticks(range(len(cost_df)))
+    ax.set_xticklabels(cost_df["variant"], rotation=35, ha="right", fontsize=9)
+    ax.set_ylabel("Mean cost per item (USD)", fontsize=11)
+    ax.set_title("Cost per variant", fontsize=12, fontweight="bold")
+    ax.yaxis.grid(True, alpha=0.3)
+    ax.set_axisbelow(True)
+    for bar, cost in zip(bars, cost_df["mean_cost"]):
+        ax.text(bar.get_x() + bar.get_width()/2, bar.get_height() + 0.02,
+                f"${cost:.2f}", ha="center", va="bottom", fontsize=8)
+
+    ax = axes[1]
+    bars2 = ax.bar(range(len(cost_df)), cost_df["mean_steps"], color=bar_colors,
+                   edgecolor="white", linewidth=0.5)
+    ax.set_xticks(range(len(cost_df)))
+    ax.set_xticklabels(cost_df["variant"], rotation=35, ha="right", fontsize=9)
+    ax.set_ylabel("Mean steps per item", fontsize=11)
+    ax.set_title("Steps per variant", fontsize=12, fontweight="bold")
+    ax.yaxis.grid(True, alpha=0.3)
+    ax.set_axisbelow(True)
+    for bar, steps in zip(bars2, cost_df["mean_steps"]):
+        ax.text(bar.get_x() + bar.get_width()/2, bar.get_height() + 0.5,
+                f"{steps:.0f}", ha="center", va="bottom", fontsize=8)
+
+    fig.suptitle("Agent efficiency by variant — cost and step count", fontsize=13)
+    fig.tight_layout()
+    out = OUTPUT_DIR / "cost-steps-comparison"
+    fig.savefig(str(out) + ".png", dpi=150, bbox_inches="tight")
+    fig.savefig(str(out) + ".pdf", bbox_inches="tight")
+    plt.close(fig)
+    print(f"  {out}.png")
+
+    # Generate individual per-variant heatmaps for inline document use
+    # (large, readable, one variant per file — used in the LaTeX primer)
+    print("\nGenerating individual variant heatmaps...")
+    classified = apply_classify(tools, classify_state)
+    count_matrices = build_transition_counts(classified, STATES)
+    for variant in VARIANT_ORDER:
+        if variant not in count_matrices:
+            continue
+        P = normalize_to_probability_matrix(count_matrices[variant])
+        safe_name = variant.replace("+", "-").replace(" ", "_")
+        out_path = OUTPUT_DIR / f"heatmap-{safe_name}"
+        make_single_transition_matrix(P, STATES, variant, out_path)
+        print(f"  {out_path}.png")
 
     elapsed = time.time() - t0
     print(f"\nDone in {elapsed:.1f}s")
