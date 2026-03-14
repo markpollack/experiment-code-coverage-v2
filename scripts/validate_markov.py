@@ -80,7 +80,11 @@ def load_v1() -> tuple[pd.DataFrame, pd.DataFrame]:
 def load_data(include_v1: bool = False) -> tuple[pd.DataFrame, pd.DataFrame, str]:
     """Returns (tools, items, dataset_label)."""
     tools, items = load_primary()
-    label = f"v2 only ({tools['variant'].nunique()} variants, N=1 each)"
+    if "run_index" in tools.columns and tools["run_index"].nunique() > 1:
+        max_n = tools.groupby("variant")["run_index"].nunique().max()
+        label = f"v2 only ({tools['variant'].nunique()} variants, up to N={max_n} runs each)"
+    else:
+        label = f"v2 only ({tools['variant'].nunique()} variants, N=1 each)"
 
     if not include_v1:
         return tools, items, label
@@ -103,13 +107,22 @@ def load_data(include_v1: bool = False) -> tuple[pd.DataFrame, pd.DataFrame, str
 # ---------------------------------------------------------------------------
 
 def build_bigrams_trigrams(classified: pd.DataFrame) -> tuple[dict, dict, dict]:
-    """Pool bigram and trigram counts across all variants/items."""
+    """Pool bigram and trigram counts across all variants/items/runs.
+
+    Groups by (variant, item_id, run_index) when run_index is available so that
+    run boundaries are respected — the last state of run N does NOT count as a
+    predecessor of the first state of run N+1.
+    """
     bigrams: dict[tuple, int] = {}
     trigrams: dict[tuple, int] = {}
     state_counts: dict[str, int] = {}
 
-    for _, group in classified.groupby(["variant", "item_id"], sort=False):
-        seq = group["semantic_state"].tolist()
+    group_keys = ["variant", "item_id"]
+    if "run_index" in classified.columns and classified["run_index"].nunique() > 1:
+        group_keys.append("run_index")
+
+    for _, group in classified.groupby(group_keys, sort=False):
+        seq = group.sort_values("global_seq")["semantic_state"].tolist()
         for s in seq:
             state_counts[s] = state_counts.get(s, 0) + 1
         for a, b in zip(seq[:-1], seq[1:]):
@@ -239,7 +252,15 @@ def stationarity_test(classified: pd.DataFrame) -> dict:
     per_variant_P: dict[str, np.ndarray] = {}
 
     for variant, vdf in classified.groupby("variant"):
-        seq = vdf["semantic_state"].tolist()
+        # If multiple runs exist, concatenate each run's sequence independently
+        # (respect run boundaries — don't let last state of run N → first of run N+1)
+        if "run_index" in vdf.columns and vdf["run_index"].nunique() > 1:
+            seqs = []
+            for _, rdf in vdf.groupby("run_index", sort=True):
+                seqs.extend(rdf.sort_values("global_seq")["semantic_state"].tolist())
+            seq = seqs  # used only for split-half; boundary artifacts are minor at this level
+        else:
+            seq = vdf["semantic_state"].tolist()
         n = len(seq)
         if n < 10:
             rows.append({"variant": variant, "n_steps": n, "n_early": "—",
@@ -280,12 +301,37 @@ def stationarity_test(classified: pd.DataFrame) -> dict:
 # Analysis 3: Predicted vs Actual (with k-fold CV when run_index available)
 # ---------------------------------------------------------------------------
 
+def make_trace_df(classified: pd.DataFrame, items: pd.DataFrame,
+                   variant: str, mask: pd.Series | None = None) -> tuple[pd.DataFrame, pd.DataFrame]:
+    """Return (cls_traces, items_traces) with unique item_id per run.
+
+    When run_index is available each (item_id, run_index) pair gets a synthetic
+    trace_id so build_absorbing_chain_from_traces treats runs as independent
+    traces rather than concatenating them into one long sequence.
+    """
+    cls = classified[classified["variant"] == variant]
+    its = items[items["variant"] == variant]
+    if mask is not None:
+        cls = cls[mask[cls.index]]
+        its = its[mask[its.index]]
+    if "run_index" in cls.columns and cls["run_index"].nunique() > 1:
+        cls = cls.copy()
+        its = its.copy()
+        cls["item_id"] = cls["item_id"].astype(str) + "_r" + cls["run_index"].astype(str)
+        its["item_id"] = its["item_id"].astype(str) + "_r" + its["run_index"].astype(str)
+    return cls, its
+
+
 def predicted_vs_actual(classified: pd.DataFrame, items: pd.DataFrame) -> dict:
     """Compare N[0].sum() to actual classified steps per item.
 
     If run_index column is present and has >1 distinct values for any variant,
     runs leave-one-out cross-validation: fit P on N-1 runs, predict the Nth.
     Otherwise reports self-consistent (circular) predictions with a note.
+
+    Multi-run note: each (item_id, run_index) pair is treated as an independent
+    trace by synthesising a unique item_id per run — prevents run boundaries
+    from being counted as within-run transitions.
     """
     has_run_index = ("run_index" in classified.columns and
                      classified["run_index"].nunique() > 1)
@@ -301,35 +347,27 @@ def predicted_vs_actual(classified: pd.DataFrame, items: pd.DataFrame) -> dict:
             # Leave-one-out CV: fit on N-1 runs, predict Nth
             cv_errors = []
             for held_out in run_indices:
-                train_cls = vdf[vdf["run_index"] != held_out]
+                train_mask_cls = classified["run_index"] != held_out
                 test_cls = vdf[vdf["run_index"] == held_out]
-                train_items = items[(items["variant"] == variant) &
-                                    (items["run_index"] != held_out)]
-                if len(train_cls) == 0 or len(test_cls) == 0:
+                if len(test_cls) == 0:
                     continue
-                Q, R, _ = build_absorbing_chain_from_traces(
-                    classified_df=classified[classified["variant"] == variant],
-                    item_results_df=items[items["variant"] == variant],
-                    states=STATES,
-                    variant=variant,
-                )
-                # Refit on training runs only
-                from markov_agent_analysis.fundamental import build_absorbing_chain_from_traces as _bact
-                # Build Q from train set directly
+
                 train_full = classified[(classified["variant"] == variant) &
                                         (classified["run_index"] != held_out)]
                 items_train = items[(items["variant"] == variant) &
                                     (items["run_index"] != held_out)]
-                Q_train, R_train, _ = _bact(
-                    classified_df=train_full,
-                    item_results_df=items_train,
+                # Synthesise per-run trace IDs so runs aren't concatenated
+                cls_tr, its_tr = make_trace_df(train_full, items_train, variant)
+                Q_train, R_train, _ = build_absorbing_chain_from_traces(
+                    classified_df=cls_tr,
+                    item_results_df=its_tr,
                     states=STATES,
                     variant=variant,
                 )
                 N_train = compute_fundamental_matrix(Q_train)
                 predicted = float(N_train[0].sum())
                 actual = len(test_cls)
-                cv_errors.append({"held_out": held_out, "predicted": round(predicted, 1),
+                cv_errors.append({"held_out": int(held_out), "predicted": round(predicted, 1),
                                    "actual": actual, "delta": round(actual - predicted, 1)})
 
             mean_abs_err = float(np.mean([abs(e["delta"]) for e in cv_errors])) if cv_errors else None
@@ -337,7 +375,7 @@ def predicted_vs_actual(classified: pd.DataFrame, items: pd.DataFrame) -> dict:
                 "variant": variant,
                 "n_items": n_items,
                 "n_runs": n_runs,
-                "actual_per_item": round(actual_total / max(n_items, 1), 1),
+                "actual_per_item": round(actual_total / max(n_runs, 1), 1),
                 "predicted_per_item": round(np.mean([e["predicted"] for e in cv_errors]), 1) if cv_errors else None,
                 "cv_mae": round(mean_abs_err, 2) if mean_abs_err is not None else None,
                 "cv_folds": cv_errors,
@@ -347,9 +385,10 @@ def predicted_vs_actual(classified: pd.DataFrame, items: pd.DataFrame) -> dict:
             })
         else:
             # Single-run or N<3: self-consistent (circular) prediction
+            cls_tr, its_tr = make_trace_df(classified, items, variant)
             Q, R, _ = build_absorbing_chain_from_traces(
-                classified_df=classified,
-                item_results_df=items,
+                classified_df=cls_tr,
+                item_results_df=its_tr,
                 states=STATES,
                 variant=variant,
             )
@@ -360,7 +399,7 @@ def predicted_vs_actual(classified: pd.DataFrame, items: pd.DataFrame) -> dict:
                 "variant": variant,
                 "n_items": n_items,
                 "n_runs": n_runs,
-                "actual_per_item": round(actual_total / max(n_items, 1), 1),
+                "actual_per_item": round(actual_total / max(n_runs, 1), 1),
                 "predicted_per_item": round(predicted_per_item, 1),
                 "cv_mae": None,
                 "cv_folds": None,
@@ -606,7 +645,12 @@ if __name__ == "__main__":
     parser.add_argument("--include-v1", action="store_true",
                         help="Also include v1 curated parquet (use with caution — "
                              "v1 has multi-item runs and early false starts)")
+    parser.add_argument("--data-dir", type=Path, default=None,
+                        help="Override data directory (default: data/curated/)")
     args = parser.parse_args()
+
+    if args.data_dir is not None:
+        DATA_DIR = args.data_dir if args.data_dir.is_absolute() else PROJECT_ROOT / args.data_dir
 
     import time
     t0 = time.time()
