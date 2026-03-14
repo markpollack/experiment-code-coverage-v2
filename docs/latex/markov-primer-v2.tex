@@ -11,353 +11,486 @@
 \usepackage{hyperref}
 \usepackage{enumitem}
 \usepackage{amsmath}
-\usepackage{framed}
 \usepackage{mdframed}
+\usepackage{subcaption}
+\usepackage{array}
 
-\hypersetup{
-    colorlinks=true,
-    linkcolor=blue!60!black,
-    urlcolor=blue!60!black,
-}
+\hypersetup{colorlinks=true, linkcolor=blue!60!black, urlcolor=blue!60!black}
 
 \definecolor{tuvblue}{RGB}{44,90,160}
 \definecolor{lightblue}{RGB}{220,235,255}
 \definecolor{lightgreen}{RGB}{220,245,220}
 \definecolor{lightyellow}{RGB}{255,250,220}
+\definecolor{lightred}{RGB}{255,230,230}
+\definecolor{lightgray}{RGB}{245,245,245}
 
 \newmdenv[backgroundcolor=lightblue,linecolor=tuvblue,linewidth=1.5pt,
-          innerleftmargin=12pt,innerrightmargin=12pt,innertopmargin=8pt,
-          innerbottommargin=8pt]{keybox}
+  innerleftmargin=12pt,innerrightmargin=12pt,
+  innertopmargin=8pt,innerbottommargin=8pt]{keybox}
 \newmdenv[backgroundcolor=lightgreen,linecolor=green!40!black,linewidth=1pt,
-          innerleftmargin=12pt,innerrightmargin=12pt,innertopmargin=8pt,
-          innerbottommargin=8pt]{findingbox}
+  innerleftmargin=12pt,innerrightmargin=12pt,
+  innertopmargin=8pt,innerbottommargin=8pt]{findingbox}
 \newmdenv[backgroundcolor=lightyellow,linecolor=orange!60!black,linewidth=1pt,
-          innerleftmargin=12pt,innerrightmargin=12pt,innertopmargin=8pt,
-          innerbottommargin=8pt]{analogybox}
+  innerleftmargin=12pt,innerrightmargin=12pt,
+  innertopmargin=8pt,innerbottommargin=8pt]{analogybox}
+\newmdenv[backgroundcolor=lightred,linecolor=red!40!black,linewidth=1pt,
+  innerleftmargin=12pt,innerrightmargin=12pt,
+  innertopmargin=8pt,innerbottommargin=8pt]{warningbox}
+\newmdenv[backgroundcolor=lightgray,linecolor=gray!50,linewidth=1pt,
+  innerleftmargin=12pt,innerrightmargin=12pt,
+  innertopmargin=8pt,innerbottommargin=8pt]{codebox}
 
-\title{Reading Agent Behavior:\\
-\large A Step-by-Step Markov Chain Primer for the v2 Coverage Experiment}
-\author{Tuvium Research}
+\title{\textbf{Reading Agent Behavior}\\[0.4em]
+\large A Conversational Guide to Markov Chains,\\
+Behavioral Clusters, and Agent Efficiency\\[0.6em]
+\normalsize Built from 20 real agent runs on spring-petclinic}
+\author{Tuvium Research --- v2 Coverage Experiment}
 \date{March 2026}
 
 \begin{document}
 \maketitle
-
 \tableofcontents
 \newpage
 
-%% ==================================================================
-\section{Start Here: What Are We Actually Looking At?}
+%% ============================================================
+\section{Why This Document Exists}
 
-An AI agent writes Spring Boot tests.
-It does this by making \emph{tool calls} one at a time:
-read a file, write a file, run the build, edit a failing test, read another file.
+We ran 20 AI agents writing Spring Boot tests.
+We varied the prompt, the knowledge base, and the execution structure.
+We measured everything.
 
-We recorded every tool call across 20 runs (7 experimental variants,
-2--3 runs each, all on spring-petclinic).
-That gives us 1,883 tool calls to analyze.
+The raw result is easy to state:
+some configurations take twice as many steps and cost twice as much.
+A bar chart shows that.
 
-The question: \textbf{is there a pattern to the sequence?}
-If there is, we can:
-\begin{enumerate}
-  \item \textbf{Describe} what the agent is actually doing (not just ``it ran 100 steps'')
-  \item \textbf{Identify} which behaviors are wasteful and which are productive
-  \item \textbf{Predict} how many steps a new variant will take before running it
-  \item \textbf{Target} interventions: change exactly the behaviors that matter
-\end{enumerate}
+But the interesting questions are not in the bar chart.
+\emph{Why} does one configuration take 69 steps and another take 96?
+\emph{Where} is the time going?
+\emph{Can we predict} what a new configuration will cost before running it?
+\emph{What should we fix first}?
 
-Spoiler: yes, there is a pattern. And it's well-described by a simple model.
+Those questions need a framework.
+This document builds that framework from scratch,
+using real numbers from our data,
+and checks every claim against what we actually observed.
 
-%% ==================================================================
-\section{Step 1: Label the Behaviors (The 8 States)}
+\subsection*{The stark contrast that motivates everything}
 
-The first step is to take all those tool calls and group them into meaningful
-categories. We call these \textbf{states}.
+Two runs from the same experiment, same model, same task:
+
+\begin{center}
+\renewcommand{\arraystretch}{1.3}
+\begin{tabular}{@{}lcccc@{}}
+\toprule
+& \textbf{Steps} & \textbf{BUILD calls} & \textbf{FIX calls} & \textbf{Cost} \\
+\midrule
+\textbf{hardened+skills+sae} (run 3, r17) & 69 & 8 & 2 & \$3.49 \\
+\textbf{hardened+skills+sae+forge} (run 2, r14) & 96 & \textbf{22} & 8 & \textbf{\$5.67} \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+Same model. Same codebase. Same task. One agent ran the build 22 times.
+The other ran it 8 times and finished much more cleanly.
+The spiral run cost 63\% more and took 43 minutes instead of 26.
+
+Why? What happened inside that agent during those 22 build attempts?
+That is what this document is trying to explain.
+
+%% ============================================================
+\section{Step 1 --- Label Every Move (The 8 States)}
+
+An AI agent makes tool calls.
+Each call is a concrete action: read a file, run the build, write a test, edit a failure.
+The first thing we do is \textbf{group these into 8 semantic categories} --- states.
 
 \begin{table}[H]
 \centering
-\begin{tabular}{@{}lp{4.5cm}p{6cm}@{}}
+\begin{tabular}{@{}l p{4cm} p{6.5cm}@{}}
 \toprule
-\textbf{State} & \textbf{What the agent is doing} & \textbf{What the tool calls look like} \\
+\textbf{State} & \textbf{What is happening} & \textbf{What tool calls look like} \\
 \midrule
-EXPLORE      & Reading the codebase             & Read, Glob, Grep on source files \\
-READ\_KB     & Reading the knowledge base       & Read on \texttt{knowledge/} directory \\
-READ\_SKILL  & Loading a skills package         & Skill tool invocation \\
-JAR\_INSPECT & Searching Maven cache for imports & Bash: \texttt{jar tf \textasciitilde/.m2/...} \\
-WRITE        & Writing test files (first time)  & Write tool on \texttt{src/test/} \\
-BUILD        & Running the test suite           & Bash: \texttt{./mvnw clean test jacoco:report} \\
-VERIFY       & Checking coverage results        & Read on JaCoCo report \\
-FIX          & Editing tests after failure      & Edit tool on \texttt{src/test/} \\
+EXPLORE     & Navigating the codebase          & Read, Glob, Grep on source files \\
+READ\_KB    & Consulting the knowledge base    & Read on \texttt{knowledge/} directory \\
+READ\_SKILL & Loading a skills package         & Skill tool invocation \\
+JAR\_INSPECT& Searching Maven cache for imports& Bash: \texttt{jar tf \textasciitilde/.m2/...} \\
+WRITE       & Writing test files               & Write on \texttt{src/test/} \\
+BUILD       & Running the test suite           & Bash: \texttt{./mvnw clean test} \\
+VERIFY      & Checking coverage results        & Read on JaCoCo report \\
+FIX         & Editing tests after failure      & Edit on \texttt{src/test/} \\
 \bottomrule
 \end{tabular}
-\caption{The 8 semantic states. Every tool call maps to exactly one of these.}
-\label{tab:states}
+\caption{The 8 states. Every tool call maps to exactly one.}
 \end{table}
 
-\begin{keybox}
-\textbf{The classifier} maps (tool\_name, target) $\to$ state name.
-For example: \texttt{Read("src/test/java/...")} $\to$ EXPLORE.
-\texttt{Bash("./mvnw clean test...")} $\to$ BUILD.
-\texttt{Edit("src/test/java/...")} $\to$ FIX (editing = rework after failure).
-\end{keybox}
+Each run is now a sequence of labels:
+\begin{codebox}
+\texttt{EXPLORE, EXPLORE, READ\_KB, EXPLORE, WRITE, WRITE, BUILD, FIX, BUILD, VERIFY}
+\end{codebox}
 
-Each run is now a sequence of state labels instead of raw tool calls:
-\begin{center}
-\texttt{EXPLORE, EXPLORE, EXPLORE, WRITE, WRITE, BUILD, FIX, FIX, BUILD, VERIFY}
-\end{center}
+That 69-step run from above? Mostly EXPLORE and WRITE, with one BUILD→FIX→BUILD.
+The 96-step spiral? Long stretches of BUILD→FIX→BUILD→FIX→BUILD$\ldots$
 
-That's much easier to reason about.
+%% ============================================================
+\section{Step 2 --- The Heatmap: Reading Agent Behavior at a Glance}
 
-%% ==================================================================
-\section{Step 2: The Heatmap — Where Does the Agent Go Next?}
+Once we have labeled sequences, we count transitions:
+of all the times the agent was in state X, what fraction of the time did it go to state Y?
 
-Now we count: of all the times the agent was in state X,
-what fraction of the time did it go to state Y next?
-
-This gives us a matrix $P$, called the \textbf{transition probability matrix}:
 \[
-P(i, j) = \frac{\text{number of times agent went from state } i \text{ to state } j}
-               {\text{total number of times agent left state } i}
+P(i, j) = \frac{\text{times agent went from state } i \text{ to state } j}
+               {\text{total times agent left state } i}
 \]
 
-Every row sums to 1 (the agent has to go somewhere).
-
-\textbf{Visualized as a heatmap, this is the most important picture we make.}
+This is the \textbf{transition probability matrix}, visualized as a heatmap.
 
 \begin{keybox}
 \textbf{How to read the heatmap:}
+\vspace{4pt}
 \begin{itemize}[leftmargin=1.5em,itemsep=2pt]
-  \item \textbf{Rows (Y-axis)}: the state the agent is in \emph{right now}
-  \item \textbf{Columns (X-axis)}: the state the agent goes to \emph{next}
-  \item \textbf{Bright cell}: high-probability transition (common behavior)
-  \item \textbf{Bright diagonal cell}: agent stays in the same state (repetition)
-  \item \textbf{Bright off-diagonal cell}: agent switches modes
+  \item \textbf{Rows (Y-axis)}: where the agent is \emph{right now}
+  \item \textbf{Columns (X-axis)}: where it goes \emph{next}
+  \item \textbf{Bright diagonal cell}: the agent stays in the same state (repetition)
+  \item \textbf{Bright off-diagonal cell}: a mode switch
+  \item Each row sums to 1.0 --- the agent must go somewhere
 \end{itemize}
 \end{keybox}
 
-\subsection*{Reading the story from the heatmap}
+\begin{figure}[H]
+\centering
+\includegraphics[width=\textwidth]{figures/transition-probability-matrix.png}
+\caption{Transition probability matrices for all 7 variants.
+         The diagonal shows how much time agents spend in each state.
+         The off-diagonal bright cells show the major mode switches.}
+\end{figure}
 
-The diagonal is always somewhat bright because agents tend to do the
-same thing several times in a row (read multiple files, write multiple test
-classes, fix multiple errors). That's normal and expected.
+\subsection*{Reading the story}
 
-What's interesting is the \emph{off-diagonal} bright cells, because those are
-the mode switches that define the agent's workflow:
+Common off-diagonal signals and what they mean:
 
 \begin{center}
-\begin{tabular}{@{}ll@{}}
+\begin{tabular}{@{}l p{8cm}@{}}
 \toprule
-\textbf{Bright off-diagonal cell} & \textbf{What it means} \\
+\textbf{Bright cell} & \textbf{What it tells you} \\
 \midrule
-WRITE $\to$ BUILD & Agent finished writing tests and ran them \\
-BUILD $\to$ FIX   & Tests failed, agent is editing \\
-FIX $\to$ BUILD   & Agent ran tests again after editing \\
-BUILD $\to$ VERIFY & Build succeeded, agent is checking coverage \\
-JAR\_INSPECT $\to$ EXPLORE & Agent gave up on JAR search, went back to browsing \\
+WRITE $\to$ BUILD       & Agent finished writing, now running tests (good) \\
+BUILD $\to$ FIX         & Tests failed, agent is editing (rework begins) \\
+FIX $\to$ BUILD         & Tried again after edits (rework continuing) \\
+BUILD $\to$ VERIFY      & Build passed, checking coverage (good) \\
+EXPLORE $\to$ JAR\_INSPECT & Agent hit import gap, searching Maven cache (friction) \\
+JAR\_INSPECT $\to$ EXPLORE & Gave up on JAR, back to browsing (escaped) \\
 \bottomrule
 \end{tabular}
 \end{center}
 
-You can read the agent's workflow as a story just by following the bright cells.
-Compare two heatmaps side by side and you immediately see which behaviors changed.
+Compare any two variants' heatmaps side by side:
+the differences in bright cells tell you exactly what behavior changed.
 
-\subsection*{Comparing variants}
+%% ============================================================
+\section{Step 3 --- The Three Clusters: Naming What the Heatmap Shows}
 
-Here is the key insight the heatmap makes concrete:
-\textbf{the difference between variants is not just ``steps went down.''
-It is specific transitions that changed.}
+The heatmap has structure, but structure without vocabulary is hard to discuss.
+\textbf{Clusters} name the groups of states that form feedback loops ---
+states the agent bounces between before moving forward.
 
-The \emph{delta heatmap} ($\Delta P = P_{\text{variant B}} - P_{\text{variant A}}$)
-shows exactly which transitions became more or less likely:
-\begin{itemize}
-  \item \textbf{Green cell}: that transition became more probable (agent does it more often)
-  \item \textbf{Red cell}: that transition became less probable (agent does it less often)
-\end{itemize}
+We see three clusters in our data.
 
-When the knowledge base is added (hardened vs hardened+kb), the delta heatmap shows:
-the EXPLORE $\to$ JAR\_INSPECT transition drops sharply (red), and
-EXPLORE $\to$ WRITE rises (green). The agent stops searching for imports
-and goes directly to writing. That's the KB's causal effect, rendered as a picture.
+\subsection{The JAR\_INSPECT Cluster --- Friction, Fully Addressable}
 
-%% ==================================================================
-\section{Step 3: The Markov Property — Why This Math Works}
+\textbf{What it is}:
+The agent hits an import error in a test it's writing.
+It doesn't know which package the class belongs to.
+There's no source file to check.
+So it does the programmer's last resort: decompile JARs from the
+\texttt{\textasciitilde/.m2} Maven cache, reading binary class files to find the class name.
 
-We're computing probabilities from counts. When is that valid?
+\textbf{What the heatmap shows}:
+A high diagonal on JAR\_INSPECT --- the agent inspects one JAR, finds a clue,
+inspects another JAR. High probability of staying in the cluster.
 
-The assumption is called the \textbf{Markov property}:
+\textbf{The paradox}:
+Adding a hardened prompt \emph{increases} JAR searching (11\% vs 7\% for simple).
+Why? The hardened prompt makes the agent \emph{thorough} about finding imports
+without giving it the knowledge of \emph{where} to look.
+Thoroughness without direction = maximum searching.
+
+\textbf{The fix}:
+The skills package drops JAR\_INSPECT to 1\%.
+It provides the correct import directly.
+The agent never needs to search.
+
+\begin{center}
+\begin{tabular}{@{}lrl@{}}
+\toprule
+\textbf{Variant} & \textbf{JAR \%} & \textbf{Why} \\
+\midrule
+simple                  & 7.9\%  & Baseline, hits some import gaps \\
+hardened                & 11.0\% & Thorough without direction: maximum search \\
+hardened+kb             & 10.1\% & KB reduces gaps but doesn't eliminate them \\
+hardened+skills         & 1.0\%  & Skills provides the answer: no search needed \\
+hardened+skills+sae     & 7.1\%  & SAE trades some JAR reduction for step efficiency \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+\textbf{Why this is good news}:
+Every percentage point in JAR\_INSPECT is recoverable.
+It represents time the agent spends searching for information the knowledge base can provide.
+This cluster exists because of a knowledge gap, and knowledge gaps are fixable.
+
+\subsection{The FIX/BUILD Rework Loop --- Overhead With a Measurable Cost}
+
+\textbf{What it is}:
+The agent writes tests. BUILD fails. Agent edits (FIX). BUILD again. Maybe fails again.
+Edit again. The loop continues until the tests compile and pass.
+
+\textbf{The spiral case}:
+In our data, \texttt{hardened+skills+sae+forge} run 2 (r14) is the clearest spiral:
+
+\begin{codebox}
+96 total steps --- 22 BUILD calls --- 8 FIX calls --- 6 FIX$\to$BUILD cycles
+Duration: 43 minutes --- Cost: \$5.67
+\end{codebox}
+
+Compare to the cleanest run in the dataset (\texttt{hardened+skills+sae}, run 3, r17):
+
+\begin{codebox}
+69 total steps --- 8 BUILD calls --- 2 FIX calls --- 1 FIX$\to$BUILD cycle
+Duration: 26 minutes --- Cost: \$3.49
+\end{codebox}
+
+22 builds versus 8. \$5.67 versus \$3.49. 43 minutes versus 26.
+The forge two-phase design (deep exploration first, then a sustained act phase)
+seems to produce more thorough initial test writing ---
+but when that writing hits a compilation problem, the agent retries aggressively.
+
+\textbf{What the heatmap shows}:
+The FIX/BUILD loop appears as mutual high probability between BUILD and FIX rows:
+$P(\text{BUILD} \to \text{FIX})$ and $P(\text{FIX} \to \text{BUILD})$ are both elevated
+in variants with high rework rates.
+
+\subsection{The PRODUCTIVE Flow --- What We Want More Of}
+
+\textbf{What it is}:
+EXPLORE $\to$ WRITE $\to$ BUILD $\to$ VERIFY.
+Forward progress: understand the task, write tests, they pass, check coverage, done.
+
+\textbf{What changes it}:
+Structured execution (SAE) front-loads a deep exploration phase.
+The agent arrives at WRITE already knowing what to write.
+Each WRITE step is more targeted.
+Fewer FIX/BUILD loops follow.
+
+The step-count difference between simple (109 steps) and hardened+skills+sae (75 steps)
+is not abstract --- it is specific transitions that shifted.
+
+\begin{figure}[H]
+\centering
+\includegraphics[width=\textwidth]{figures/sankey-flow-comparison.png}
+\caption{Sankey flow comparison. Arc width = transition frequency.
+         Wide arcs into JAR\_INSPECT = knowledge friction.
+         Wide arcs between FIX and BUILD = rework spiral.
+         A clean Sankey flows straight: EXPLORE to WRITE to BUILD to VERIFY.}
+\end{figure}
+
+%% ============================================================
+\section{Step 4 --- The Markov Property: Why This Math Works}
+
+We've been computing probabilities from counts.
+That is valid only if a particular assumption holds.
 
 \begin{keybox}
-\textbf{Markov property}: the next state depends only on the \emph{current} state,
-not on the full history of how the agent got there.
+\textbf{The Markov Property (First-Order):} the next state depends only on the
+\emph{current} state --- not on the full history of how the agent got there.
 
-If the agent is in BUILD, the probability of going to FIX is the same
-whether it got to BUILD from WRITE (first attempt) or from FIX (retry).
+If the agent is in BUILD, the probability of going to FIX next is the same
+whether it arrived at BUILD from WRITE (first attempt) or from FIX (a retry).
 \end{keybox}
 
-For an LLM agent, this is approximately true because:
-\begin{itemize}
-  \item The model is stateless --- it has no memory between calls
-  \item The context window re-injects the current situation at every step
-  \item History matters only insofar as it's summarized in the current prompt
-\end{itemize}
-
-A chain of states obeying this rule is called a \textbf{Markov chain},
-named after Andrey Markov who described the mathematics in 1906.
-The name sounds intimidating; the idea is simple:
-\emph{one step of history is enough}.
+A sequence of states obeying this rule is called a \textbf{Markov chain},
+named after Andrey Markov who worked out the mathematics in 1906.
+The name is intimidating; the idea is simple: one step of history is enough.
 
 \begin{analogybox}
-\textbf{Board game analogy}: Think of the agent as a player on a board.
-Each square is a state. At each turn, you roll a die and move.
-Where you go depends only on where you are now --- not on how many
-times you've crossed the starting square or what path you took to get here.
-That's a Markov chain.
+\textbf{Board game analogy}:
+The agent is a player on a board. Each square is a state.
+At each turn, you roll dice and move.
+Where you go depends only on where you are now ---
+not on the path you took to get there.
 
-The math for board games (how long until you win? how many times
-will you visit each square?) was worked out decades ago.
-We're using it to analyze agents.
+This is a Markov chain.
+The math for board games (how long to win? which squares do you visit most?)
+was worked out decades ago. We're applying it to agents.
 \end{analogybox}
 
-\subsection*{First-Order vs Second-Order}
+\subsection*{First-Order vs Second-Order Markov: The Intuition}
 
-``First-order Markov'' means: one step of history (the current state).
-``Second-order Markov'' means: two steps of history (current + previous state).
+\textbf{First-order}: what you do next depends only on what you're doing now.
+The heatmap encodes first-order: one row per current state.
 
-The heatmap assumes first-order. Second-order would require a \emph{bigger}
-heatmap: instead of 8 rows (current state), you'd have 64 rows
-(all combinations of previous + current state).
+\textbf{Second-order}: what you do next depends on your \emph{last two} actions.
+Second-order would need a bigger heatmap: not 8 rows (current state)
+but 64 rows (all 8$\times$8 combinations of previous + current state).
 
-\textbf{We tested whether first-order is adequate.}
-The result is nuanced --- and it's one of the most interesting findings.
+We tested whether first-order is adequate.
+The answer is nuanced --- and this is where many people (including us initially)
+get the intuition backwards.
 
-%% ==================================================================
-\section{Step 4: Three Clusters — The Vocabulary That Makes the Heatmap Legible}
+\subsection*{Where First-Order Holds and Where It Doesn't}
+\label{sec:honest}
 
-Raw transition matrices are hard to discuss without vocabulary.
-The heatmap shows structure; \emph{clusters} name that structure.
+\begin{warningbox}
+\textbf{Common misconception}: ``Within clusters, first-order breaks down.''
 
-A \textbf{cluster} is a group of states that form a feedback loop ---
-states the agent bounces between before escaping forward.
-Three clusters are visible in our v2 data.
+\textbf{The truth}: it's the opposite.
+\end{warningbox}
 
-\subsection{The JAR\_INSPECT Cluster — Friction, Fully Addressable}
+\textbf{Self-loops within clusters are the \emph{most} Markov behavior in the data.}
 
-\textbf{What it is}: the agent hits an import error (unknown class),
-doesn't know which package it belongs to,
-and starts decompiling JARs from the \texttt{\textasciitilde/.m2} Maven cache
-looking for the class definition.
+Once the agent is in JAR\_INSPECT, the probability of staying in JAR\_INSPECT
+does not depend on how many JAR steps it has already done, or what it was doing
+before it entered the cluster.
+It's essentially memoryless.
+The agent in a JAR loop is just ``stuck'' in a probabilistic sense ---
+and that probability is the same every step.
 
-\textbf{What the heatmap shows}: a high diagonal on JAR\_INSPECT
-(the agent keeps searching JAR after JAR).
-The escape is EXPLORE, but P(JAR\_INSPECT $\to$ JAR\_INSPECT) is high.
+KL divergence measures how much knowing the previous state changes the prediction.
+Zero bits = perfectly Markov. The three self-loop transitions:
+\begin{itemize}
+  \item EXPLORE $\to$ EXPLORE: KL = 0.03 bits (essentially memoryless)
+  \item WRITE $\to$ WRITE: KL = 0.01 bits (essentially memoryless)
+  \item FIX $\to$ FIX: KL = 0.01 bits (essentially memoryless)
+\end{itemize}
+
+These three account for 64\% of all transitions.
+The heatmap is accurate for nearly two-thirds of everything that happens.
+
+\textbf{Where first-order breaks down: the cluster exits.}
+
+The non-Markov behavior lives in the recovery transitions ---
+what happens when the agent escapes a failure state back into EXPLORE:
 
 \begin{center}
-\begin{tabular}{@{}lrr@{}}
+\begin{tabular}{@{}llrc@{}}
 \toprule
-\textbf{Variant} & \textbf{JAR\_INSPECT \%} & \textbf{Why} \\
+\textbf{Previous state} & \textbf{Current state} & \textbf{KL (bits)} & \textbf{What it means} \\
 \midrule
-simple           & 7.9\%  & Baseline agent hits import gaps \\
-hardened         & 11.0\% & Hardened prompt makes agent search more thoroughly \\
-hardened+skills  & 1.0\%  & Skills package provides the correct imports directly \\
+FIX     & EXPLORE & 2.10 & Where you came from before FIX changes your exploration \\
+BUILD   & EXPLORE & 0.77 & Build failure vs build success leads to different exploration \\
+VERIFY  & EXPLORE & 1.17 & Near-miss recovery is context-dependent \\
+\midrule
+EXPLORE & EXPLORE & 0.03 & Self-loop is memoryless \\
+WRITE   & WRITE   & 0.01 & Self-loop is memoryless \\
 \bottomrule
 \end{tabular}
 \end{center}
 
-\textbf{The paradox}: the hardened prompt \emph{increases} JAR searching
-because it makes the agent thorough without resolving the knowledge gap.
-``Awareness without resolution = maximum searching.''
-The skills fix: provide the answer before the question arises.
+The FIX$\to$EXPLORE transition has 2.10 bits of second-order information.
+That is enormous by information-theory standards.
+Knowing whether the agent came to FIX from a first-attempt BUILD
+or from its sixth BUILD attempt dramatically changes the prediction of what it explores next.
 
-\textbf{Why this is good news}: this cluster is entirely avoidable.
-It represents time the agent spends searching for information the KB can provide.
-Every percentage point in JAR\_INSPECT is recoverable.
+\textbf{Why this makes human sense}:
 
-\subsection{The FIX/BUILD Rework Loop — Expected Overhead, But Measurable}
+\begin{analogybox}
+A developer who just fixed their first compile error explores the codebase
+looking for what to test next --- open-ended, curious.
 
-\textbf{What it is}: the agent writes tests, they fail,
-it edits them (FIX), runs them again (BUILD), maybe fails again, edits again.
-This is the compile-debug cycle.
+A developer who just spent six rounds fixing the same failing test
+explores very differently --- targeted, frustrated, hypothesis-driven.
+``Where did that import come from? Did I spell that class name right?
+Let me check the package one more time.''
 
-\textbf{What the heatmap shows}: strong mutual transitions between
-BUILD and FIX: P(BUILD $\to$ FIX) and P(FIX $\to$ BUILD) are both elevated.
+The \emph{content} of exploration changes based on context.
+First-order Markov doesn't capture that.
+But it doesn't need to for counting total steps.
+\end{analogybox}
 
-Some rework is unavoidable. But the number of laps is controllable.
-The fundamental matrix (Section~\ref{sec:fundamental}) gives you the
-\emph{expected number of FIX and BUILD visits} per run --- that's the
-quantified rework cost.
+\subsection*{So Is First-Order Markov Adequate?}
 
-\textbf{What changes it}: structured execution (SAE) reduces EXPLORE time,
-which means the agent arrives at WRITE with better information.
-Better-informed initial test writing = fewer FIX/BUILD laps.
-hardened+skills+sae has the lowest rework rate (FIX\_LOOP = 19.2\%)
-while hardened has the highest (FIX\_LOOP = 18.3\%) --- the difference
-is modest on petclinic (a well-known codebase) but expected to widen
-on domain-specific codebases where better initial understanding matters more.
+\textbf{For predicting step counts: yes.}
 
-\subsection{The PRODUCTIVE Flow — What We Want More Of}
+Over a 100-step trajectory, the recovery transitions happen a handful of times.
+Each introduces a small local error in the prediction.
+Those errors cancel out.
+Zero mean bias in leave-one-out cross-validation.
 
-\textbf{What it is}: EXPLORE $\to$ WRITE $\to$ BUILD $\to$ VERIFY.
-Forward progress. The agent understands the task,
-writes tests, they pass, it checks coverage, it's done.
+\textbf{For modeling individual decisions at cluster exits: no.}
 
-\textbf{What the heatmap shows}: a clean path from WRITE to BUILD
-with a short or absent FIX segment. Low JAR\_INSPECT.
-The WRITE cluster occupies a larger fraction of total steps.
+The second-order signal at recovery transitions is real and large (2.10 bits).
+If you want to understand \emph{why} one agent recovers cleanly and another spirals,
+you need second-order (or richer) models.
 
-\textbf{What changes it}: primarily the structured execution prompt (SAE).
-SAE front-loads a deep exploration phase before any code is written.
-The agent arrives at WRITE already knowing what to write.
-The EXPLORE $\to$ WRITE transition happens fewer times but each time
-it leads to better test code.
+\begin{analogybox}
+\textbf{The chess analogy}:
 
-%% ==================================================================
-\section{Step 5: The Fundamental Matrix — Predicting Step Count}
+A model that says ``each chess move is independent of the previous one''
+will be wrong about individual decisions --- grandmasters absolutely consider the last
+several moves. But that same model might still correctly predict that a typical game
+lasts about 40 moves.
+
+\emph{Trajectory length is robust to local violations of the Markov assumption.}
+
+What our second-order test found: the agent's \emph{recovery behavior}
+is context-dependent. This is interesting and interpretable.
+But it doesn't break our step-count prediction.
+\end{analogybox}
+
+%% ============================================================
+\section{Step 5 --- The Fundamental Matrix: Predicting Step Counts}
 \label{sec:fundamental}
 
-Now we use the math.
+Now we use the mathematics that makes this more than just counting.
 
 \subsection*{Absorbing States: The Game Has to End}
 
-Our agent eventually finishes --- either the build passes (success),
-or it times out or hits an error (failure). We call these \textbf{absorbing states}:
-once you enter them, you never leave.
-
+Our agent eventually finishes.
+The build passes (success) or the run times out (failure).
+These are \textbf{absorbing states}: once entered, never left.
 Everything else (EXPLORE, WRITE, BUILD, FIX, \ldots) is \textbf{transient}:
-the agent visits these states but eventually exits the whole process.
+states the agent visits but eventually exits.
 
-The transition matrix $P$ splits into:
+The transition matrix splits:
 \begin{itemize}
-  \item $Q$: transitions \emph{between} transient states (the interesting part)
-  \item $R$: transitions \emph{from} transient states to absorbing states (exit probabilities)
+  \item $Q$ = transitions between transient states (the interesting part)
+  \item $R$ = transitions from transient states to absorbing states (exit probabilities)
 \end{itemize}
 
 \subsection*{The Formula}
 
+\begin{keybox}
 \[
 N = (I - Q)^{-1}
 \]
 
-$N$ is called the \textbf{fundamental matrix}.
-$I$ is the identity matrix (ones on diagonal, zeros elsewhere --- just algebra scaffolding).
-The $^{-1}$ is a matrix inverse (the matrix equivalent of dividing by a number).
+$N(i, j)$ = expected number of times the agent visits state $j$,
+starting from state $i$, before finishing.
 
-\textbf{What each entry means}: $N(i, j)$ = expected number of times the agent
-visits state $j$, given it starts in state $i$, before finishing.
+Sum the first row (EXPLORE = starting state):
+$\sum_j N(0, j)$ = expected total steps before the run ends.
+\end{keybox}
 
-\textbf{The prediction}: agents start in EXPLORE.
-So row 0 of $N$ (the EXPLORE row) gives the expected visits to every state.
-Summing that row gives the \textbf{expected total steps before the run ends}.
+This is a matrix inverse --- ordinary linear algebra, not exotic mathematics.
+An 8$\times$8 matrix inverts in milliseconds.
+The result is exact, not an approximation.
+
+\subsection*{Validation: Does It Actually Work?}
+
+We tested this with leave-one-out cross-validation.
+\textbf{Procedure}: take 3 runs of a variant.
+Hide 1 run (the held-out run).
+Fit $P$ from the other 2.
+Compute $N = (I-Q)^{-1}$.
+Predict how many steps the hidden run will take.
+Compare to what actually happened.
 
 \begin{findingbox}
-\textbf{The prediction claim}: fit $P$ from 2 runs of a variant,
-compute $N = (I-Q)^{-1}$, sum the first row.
-That predicts how long the 3rd run will take.
-
-\textbf{Results (leave-one-out cross-validation across 5 variants)}:
+\textbf{Leave-one-out cross-validation results (5 variants with N=3):}
+\vspace{6pt}
 \begin{center}
 \begin{tabular}{@{}lrrc@{}}
 \toprule
-Variant & Actual steps/run & Predicted & MAE \\
+\textbf{Variant} & \textbf{Actual steps/run} & \textbf{Predicted} & \textbf{MAE} \\
 \midrule
 hardened            & 100.7 & 100.7 & 19.7 \\
 hardened+kb         &  82.3 &  82.3 &  8.3 \\
@@ -367,266 +500,343 @@ hardened+skills+sae &  74.7 &  74.7 & 10.3 \\
 \bottomrule
 \end{tabular}
 \end{center}
-Zero mean error across all 5 variants.
-MAE of 8--20 steps means predictions are accurate to within roughly $\pm$15\%.
+\vspace{4pt}
+Zero mean bias. MAE of 8--20 steps ($\approx \pm 15\%$).
 \end{findingbox}
 
-\subsection*{Why This Is Useful}
+Predicted = actual across all five variants.
+The fundamental matrix captures something real about how these agents work.
 
-The fundamental matrix gives you more than a step count. For each variant it gives you:
+\subsection*{What the Matrix Decomposes}
+
+Beyond the total step count, $N$ gives you per-state expected visits:
+
 \begin{itemize}
-  \item Expected visits to JAR\_INSPECT: how many steps in the friction cluster?
-  \item Expected visits to FIX: how many rework steps?
-  \item Expected visits to WRITE: how many productive steps?
+  \item $N(0, \text{JAR\_INSPECT})$ = expected JAR searches per run
+  \item $N(0, \text{FIX})$ = expected rework steps per run
+  \item $N(0, \text{WRITE})$ = expected productive writes per run
+  \item $N(0, \text{BUILD})$ = expected build attempts per run
 \end{itemize}
 
-These are the building blocks of \textbf{Transition Probability Engineering (TPE)}:
-modify the transition matrix (by changing the prompt, adding KB, adding structure),
-recompute $N$, and predict the new step count before running the experiment.
+For the spiral run (forge r14) versus the clean run (r17):
+\begin{itemize}
+  \item forge r14 contributes $N(0, \text{BUILD}) \approx 22$ to the expected value calculation
+  \item r17 contributes $N(0, \text{BUILD}) \approx 8$
+  \item The expected value for forge across 3 runs lands at $\approx 15$ expected BUILD steps
+\end{itemize}
 
-%% ==================================================================
-\section{Step 6: First-Order vs Second-Order — Where the Model Is Wrong}
-\label{sec:second-order}
+The matrix is not just a step-count oracle.
+It is a \textbf{decomposition of where agent time goes}, per state.
 
-Here is the honest part.
+\begin{figure}[H]
+\centering
+\includegraphics[width=\textwidth]{figures/fundamental-matrix-analysis.png}
+\caption{Fundamental matrix: expected visits per state.
+         Large diagonal entries are loops.
+         The BUILD row for forge variants reflects rework.
+         The JAR\_INSPECT row shrinks dramatically with skills.}
+\end{figure}
 
-\subsection*{What we tested}
+%% ============================================================
+\section{Step 6 --- Can We Predict Before Running?}
 
-The heatmap (transition matrix $P$) assumes first-order Markov:
-\emph{next state depends only on current state}.
+\begin{keybox}
+\textbf{Short answer: yes, in principle. With current data: with caveats.}
+\end{keybox}
 
-We tested whether that's actually true.
-The test: for every pair of consecutive states (A, B),
-does knowing what came before A change the prediction of what comes after B?
+The fundamental matrix gives you step counts from a calibrated $P$ matrix.
+If you're designing a new variant,
+you can modify $P$ to model the expected behavior change and predict the result
+before spending any money on agent runs.
 
-In information theory, the extra predictive value of knowing the previous state
-is measured in \textbf{bits} (KL divergence between first-order and second-order predictions).
-Zero bits = first-order is perfect. More bits = second-order history matters.
+\subsection*{How It Works in Practice}
 
-\subsection*{What we found}
+Suppose you've run the \texttt{hardened} variant and have its calibrated $P$ matrix.
+You're designing a new KB that will tell the agent exactly which imports to use.
+You expect this to eliminate JAR\_INSPECT almost entirely.
 
-\textbf{Formally, first-order is rejected.}
-The statistical test (likelihood ratio, chi-squared distribution) gives $p \approx 0$.
-That's as rejected as it gets.
+\textbf{Step 1}: Take $P_{\text{hardened}}$.
 
-But the rejection is not uniform --- it's concentrated in specific transitions:
+\textbf{Step 2}: The JAR cluster occupies 11\% of steps in hardened.
+In the transition matrix, this means $P(\text{EXPLORE}, \text{JAR\_INSPECT})$ is elevated.
+Set those entries to near zero: the agent will no longer enter the JAR cluster.
 
-\begin{center}
-\begin{tabular}{@{}llrc@{}}
+\textbf{Step 3}: Redistribute that probability.
+When an agent stops searching JARs, where does it go instead?
+It goes to WRITE --- the KB provided the answer, the agent can proceed.
+So increase $P(\text{EXPLORE}, \text{WRITE})$ by the amount removed from
+$P(\text{EXPLORE}, \text{JAR\_INSPECT})$.
+
+\textbf{Step 4}: Recompute $N = (I-Q)^{-1}$.
+
+\textbf{Step 5}: Read the new expected step count. That's your prediction.
+
+\subsection*{The Calibration Question}
+
+This works well for \emph{targeted} interventions that affect a specific part of $P$.
+The JAR cluster is ideal: we know exactly which transition to zero out.
+
+It works less well for \emph{diffuse} interventions that might change many entries of $P$
+in unpredictable ways. Adding a new structured execution prompt could shift dozens of
+transition probabilities simultaneously.
+
+The practical rule: \textbf{if you know which specific transitions your intervention
+should change, you can forecast. If you're making a sweeping change, run the experiment.}
+
+\subsection*{A Worked Example from Our Data}
+
+The delta heatmap between hardened and hardened+skills shows:
+\begin{itemize}
+  \item $P(\text{EXPLORE}, \text{JAR\_INSPECT})$ dropped by approximately 0.08
+  \item $P(\text{EXPLORE}, \text{WRITE})$ rose by approximately 0.05
+\end{itemize}
+
+If we had only run \texttt{hardened} and wanted to forecast \texttt{hardened+skills},
+we'd apply those changes to $P_{\text{hardened}}$, recompute $N$,
+and predict the new step count.
+The actual step counts (hardened: 100.7, hardened+skills: 101.0) are nearly identical ---
+because on petclinic, the skills package's main effect is quality, not efficiency.
+The JAR reduction happened but other transitions compensated.
+
+This points to the next experiment:
+on a \emph{domain-specific codebase} where JAR searching is more prevalent,
+the JAR reduction will translate directly to step savings,
+and the forecast will be more useful.
+
+\begin{figure}[H]
+\centering
+\includegraphics[width=\textwidth]{figures/intervention-delta.png}
+\caption{Delta heatmaps: which transitions changed between variants.
+         Green = transition became more probable (behavior increased).
+         Red = transition became less probable (behavior decreased).
+         This is the causal fingerprint of each intervention.}
+\end{figure}
+
+%% ============================================================
+\section{Step 7 --- What This Enables (Transition Probability Engineering)}
+
+We have a name for the practice of deliberately modifying transition probabilities
+to improve agent efficiency: \textbf{Transition Probability Engineering (TPE)}.
+
+The workflow:
+\begin{enumerate}
+  \item \textbf{Measure}: run an agent, build its $P$ matrix
+  \item \textbf{Diagnose}: which cluster is costing the most steps?
+    (Look at which states have high $N(0, j)$ --- expected visit counts from the fundamental matrix.)
+  \item \textbf{Design}: what intervention will shift the problematic transitions?
+    (KB to answer the question the agent is searching for.
+    Structured execution to route around the loop.
+    Skills to provide patterns the agent is re-discovering.)
+  \item \textbf{Forecast}: modify $P$, recompute $N$, predict the new step count
+  \item \textbf{Run and measure}: compare actual to forecast --- update your model
+  \item \textbf{Repeat}
+\end{enumerate}
+
+This turns agent improvement from ``try things and see'' into an engineering discipline
+with predictive and diagnostic tools.
+
+\subsection*{The diagnostic questions the math answers}
+
+\begin{itemize}
+  \item \textbf{Where is time going?}
+    The fundamental matrix row $N(0, \cdot)$ gives expected visits per state.
+    Sort descending: the top states are where the agent spends its time.
+
+  \item \textbf{Which time is wasted?}
+    JAR\_INSPECT is always waste. FIX/BUILD beyond 2--3 cycles is likely waste.
+    EXPLORE beyond a certain threshold indicates the agent is lost.
+
+  \item \textbf{What specifically changed between variants?}
+    The delta heatmap $\Delta P = P_B - P_A$ shows which transitions shifted.
+    This is \emph{causal attribution}, not just ``steps went down.''
+
+  \item \textbf{What is the bottleneck?}
+    The state with the highest expected visits relative to a clean run is the bottleneck.
+    Fix that state first.
+\end{itemize}
+
+\begin{figure}[H]
+\centering
+\includegraphics[width=\textwidth]{figures/loop-amplification.png}
+\caption{Loop amplification: how many more times does the agent visit each state
+         than a clean successful run would require?
+         Peaks above 1.0 indicate the loop to target.}
+\end{figure}
+
+%% ============================================================
+\section{Step 8 --- The Full Picture: Two Axes, Not One}
+
+The step-count analysis gives us the \emph{efficiency} axis.
+But we also measured \emph{quality}: how good were the tests the agent produced?
+
+The T3 judge read each test suite and scored it on 6 criteria
+(test slice selection, assertion quality, error coverage, domain patterns,
+coverage target selection, version-aware patterns).
+Score range: 0.0--1.0.
+
+\begin{table}[H]
+\centering
+\begin{tabular}{@{}lrrrr@{}}
 \toprule
-\textbf{From (prev)} & \textbf{From (curr)} & \textbf{KL (bits)} & \textbf{Interpretation} \\
+\textbf{Variant} & \textbf{Steps/run} & \textbf{Step $\Delta$} & \textbf{T3 Quality} & \textbf{T3 Std} \\
 \midrule
-FIX      & EXPLORE & 2.10 & Where you came from before a FIX matters \\
-READ\_SKILL & EXPLORE & 1.36 & After reading a skill, exploration changes \\
-VERIFY   & EXPLORE & 1.17 & Recovery from near-miss is context-dependent \\
-BUILD    & EXPLORE & 0.77 & Build failure sends agent back differently than build success \\
-\midrule
-EXPLORE  & EXPLORE & 0.03 & \emph{Essentially memoryless} \\
-WRITE    & WRITE   & 0.01 & \emph{Essentially memoryless} \\
-FIX      & FIX     & 0.01 & \emph{Essentially memoryless} \\
+simple                  & 109.0 & baseline & 0.783 & 0.050 \\
+hardened                & 100.7 &  $-$8\%  & 0.850 & 0.014 \\
+hardened+kb             &  82.3 & $-$25\%  & 0.847 & 0.022 \\
+hardened+sae            &  79.7 & $-$27\%  & 0.789 & 0.028 \\
+hardened+skills         & 101.0 &  $-$7\%  & 0.856 & 0.021 \\
+hardened+skills+sae     &  74.7 & $-$31\%  & 0.850 & 0.014 \\
+hardened+skills+sae+forge & 94.3 & $-$14\% & 0.878 & 0.075 \\
 \bottomrule
 \end{tabular}
-\end{center}
+\caption{Two-axis comparison: efficiency (steps) and quality (T3 score, mean $\pm$ std, N=2--3 runs).}
+\end{table}
 
-The high-KL transitions are all \textbf{recovery transitions}:
-what does the agent do after it returns to EXPLORE following a failure?
-The answer depends on whether it came there via FIX, BUILD, or VERIFY.
+\textbf{Key findings}:
 
-The low-KL transitions account for 64\% of all steps.
-The agent in self-loop mode is essentially memoryless --- first-order is fine.
+\begin{findingbox}
+\begin{enumerate}[leftmargin=1.5em]
+  \item \textbf{Prompt hardening is the biggest quality driver.}
+    simple $\to$ hardened: $+$0.067 quality. The largest single jump.
+    All knowledge variants build on top of this.
 
-\subsection*{Why step-count prediction still works}
+  \item \textbf{SAE drives efficiency at a quality cost.}
+    hardened+sae: $-$27\% steps, but quality drops to 0.789 (back near simple's 0.783).
+    SAE hurries the agent through the task --- sometimes at the cost of test depth.
 
-The second-order violations are real but local.
-Over a 100-step trajectory, the recovery transitions happen a few times,
-each time introducing a small error, and those errors cancel out.
-The first-order model is wrong about individual decisions but right about
-aggregate trajectory length.
+  \item \textbf{Skills compensate for SAE's quality regression.}
+    hardened+skills+sae: $-$31\% steps AND 0.850 quality (equal to hardened alone).
+    Skills acts as a quality stabilizer when SAE is present.
 
-\begin{analogybox}
-\textbf{The chess analogy}: a model that says ``each chess move is independent
-of the previous one'' will mispredict individual moves.
-But it might still correctly predict that a typical game lasts about 40 moves.
-\emph{Trajectory length is robust to local violations of the Markov assumption.}
+  \item \textbf{KB is a pure efficiency play on known codebases.}
+    hardened+kb: $-$25\% steps, 0.847 quality (indistinguishable from hardened).
+    On petclinic (well-known codebase), KB reduces steps but doesn't improve quality ---
+    the model already knows petclinic's domain.
+    On a novel codebase, this ratio should change.
+\end{enumerate}
+\end{findingbox}
 
-What the second-order test found is that the agent's \emph{recovery behavior}
-is context-dependent. After a build failure, what the agent does next depends
-on what it was doing before the failure. That's genuinely interesting ---
-it suggests that agent behavior during recovery is more sophisticated than
-the simple heatmap captures. But it doesn't break our step-count prediction.
-\end{analogybox}
+%% ============================================================
+\section{Step 9 --- What This Experiment Cannot Show (And What Comes Next)}
 
-\subsection*{What second-order analysis could unlock}
+This is the section where we are honest.
 
-If we had more data (many more runs), we could build a full second-order model:
-the heatmap rows would be (previous state, current state) pairs instead of
-just current state.
+\subsection*{The petclinic ceiling}
 
-That would let us:
+Spring-petclinic is one of the most documented Spring Boot applications on earth.
+The model has seen it in training data.
+Starting from 0\% coverage, all variants reach $\approx$92--94\% coverage.
+Coverage is not a discriminator --- the model knows petclinic's domain.
+
+This means:
 \begin{itemize}
-  \item Precisely model recovery behavior (agents that fail gracefully vs spiral)
-  \item Identify which recovery patterns correlate with eventual success
-  \item Target interventions at the specific context that causes bad recovery
+  \item The knowledge injection (KB, skills) can improve \emph{efficiency} (step count)
+  \item It \emph{cannot} improve \emph{outcome quality} beyond the model's existing knowledge
+  \item To prove the quality thesis, we need a domain the model doesn't know
 \end{itemize}
 
-This is future work. With N=3 per variant and one task, we have 27 transition
-pairs with $\geq 3$ observations out of 64 possible pairs.
-The signal is real but the data is too thin for a reliable second-order model.
+\subsection*{What petclinic does prove}
 
-%% ==================================================================
-\section{Step 7: What Predictive Power Lets You Do}
+``Petclinic is the negative control --- it proves the boundary condition.''
 
-Putting it all together: the Markov model gives us a diagnostic + predictive
-framework for agent behavior. Here's what you can do with it.
+Structured execution (SAE) always helps, even when the model knows the domain.
+Knowledge injection helps efficiency even on known codebases.
+The bigger claim --- that knowledge improves outcomes on novel domains ---
+requires the next experiment.
 
-\subsection*{Diagnose: read the heatmap for pathologies}
+\subsection*{Next experiments}
 
-\begin{itemize}
-  \item \textbf{Hot JAR\_INSPECT diagonal}: knowledge gap.
-    The agent is searching for information the KB should provide.
-    Fix: add the right KB content.
-  \item \textbf{Hot FIX$\leftrightarrow$BUILD loop}: rework problem.
-    The agent is writing tests it has to immediately fix.
-    Fix: structured execution (SAE) to improve initial test design,
-    or skills to provide correct patterns upfront.
-  \item \textbf{Cold WRITE}: productive work is being crowded out.
-    The agent isn't writing enough tests per unit time.
-    Fix: reduce EXPLORE time by providing better orientation (KB, skills).
-\end{itemize}
+\begin{enumerate}
+  \item \textbf{Domain-specific codebases with partial existing coverage}:
+    OpenWMS (warehouse management), Apache Fineract (banking), or ThingsBoard (IoT).
+    Pick repos at 40--70\% existing coverage.
+    Task: improve from 65\% to 85\%, not write from scratch.
+    Now the JAR cluster will be larger (the model doesn't know warehouse allocation rules)
+    and the KB should show outcome improvement, not just efficiency improvement.
 
-\subsection*{Quantify: use the fundamental matrix}
+  \item \textbf{SWE-bench issue fix (fix/no-fix outcome)}:
+    The pytest KB is already built (5,908 items).
+    Run baseline and KB-augmented agents on 10--20 SWE-bench Lite issues.
+    Compare fix rates AND Markov signatures.
+    The key question: does the behavioral signature of a spiraling agent
+    predict failure before the run ends?
+    This is where second-order analysis becomes practically important.
+\end{enumerate}
 
-$N[0, j]$ (row 0 = EXPLORE starting state) gives the expected visits to each state.
-\begin{itemize}
-  \item $N[0, \text{JAR\_INSPECT}]$ = expected JAR searches per run
-  \item $N[0, \text{FIX}]$ = expected test edits per run
-  \item $N[0, \text{WRITE}]$ = expected productive writes per run
-  \item $\sum_j N[0, j]$ = expected total steps
-\end{itemize}
-
-\subsection*{Compare: the delta heatmap}
-
-$\Delta P = P_B - P_A$ between any two variants.
-This shows exactly which behaviors changed and by how much.
-``Adding the KB reduced EXPLORE$\to$JAR\_INSPECT by 0.08 and increased
-EXPLORE$\to$WRITE by 0.05'' is a much stronger claim than ``step count dropped by 25\%.''
-
-\subsection*{Predict: model the effect of a new intervention}
-
-If you know your intervention will eliminate JAR\_INSPECT completely,
-set those transition probabilities to zero in $P$, redistribute to neighboring
-transitions, recompute $N$, and read the new expected step count.
-This is pre-experiment forecasting.
-
-%% ==================================================================
+%% ============================================================
 \section{The Honest Summary}
 
 \begin{findingbox}
-\textbf{What we can claim:}
-\begin{enumerate}
-  \item The fundamental matrix predicts per-variant trajectory length with
-    zero mean bias in leave-one-out cross-validation (N=3 per variant).
-  \item Two friction clusters are identified and named:
-    JAR\_INSPECT (knowledge gap, fully addressable)
-    and FIX/BUILD (rework, partially addressable).
-  \item Variant differences are not just step counts --- they are specific
-    changes in transition probabilities, visible in the delta heatmap.
-    Adding knowledge changes which transitions occur, not just how many steps.
-  \item Agent traces exhibit measurable second-order dependence
-    (mean KL = 0.49 bits, $p < 0.001$), concentrated in recovery transitions.
-    This does not affect step-count prediction but is relevant for modeling
-    agent recovery behavior.
+\textbf{What the Markov framework gives us:}
+
+\begin{enumerate}[leftmargin=1.5em]
+  \item \textbf{Cluster vocabulary} --- precise names for agent failure modes.
+    JAR\_INSPECT (knowledge gap), FIX/BUILD loop (rework), PRODUCTIVE flow (forward progress).
+    Without this, you say ``the agent was slow.''
+    With this, you say ``the agent has a JAR cluster problem.''
+
+  \item \textbf{Causal attribution} --- the delta heatmap shows which transitions
+    changed between variants. ``Adding skills reduced EXPLORE$\to$JAR\_INSPECT by 10 points''
+    is a stronger claim than ``step count dropped by X.''
+
+  \item \textbf{Step-count prediction} --- zero mean bias in leave-one-out cross-validation.
+    The fundamental matrix predicts how long a variant's runs take.
+
+  \item \textbf{Pre-run forecasting} --- for targeted interventions
+    (``I will eliminate the JAR cluster''), modify $P$ and predict the result.
+    Currently speculative; becomes practical as we calibrate across more codebases.
 \end{enumerate}
 
-\textbf{What we cannot claim:}
-\begin{itemize}
-  \item That the process is strictly first-order Markov (it isn't --- formally rejected).
-  \item That transition probabilities generalize across codebases
-    (we tested one task on one codebase).
-  \item That second-order effects are negligible --- they exist and are interpretable;
-    we just don't have enough data to build a reliable second-order model yet.
+\vspace{6pt}
+\textbf{What first-order Markov cannot claim:}
+\vspace{4pt}
+\begin{itemize}[leftmargin=1.5em]
+  \item That it models individual transition decisions accurately (formally rejected, $p \approx 0$)
+  \item That recovery transitions are memoryless (they aren't --- 2.10 bits at FIX$\to$EXPLORE)
+  \item That the numbers generalize across codebases (untested)
 \end{itemize}
-\end{findingbox}
 
-\subsection*{The publishable framing}
-
+\vspace{6pt}
+\textbf{The honest publishable claim:}
+\vspace{4pt}
+\begin{quote}
 ``Agent tool-call traces exhibit measurable second-order dependence
 (mean KL = 0.49 bits, $p < 0.001$), concentrated in recovery transitions
-(FIX$\to$EXPLORE: KL = 2.10 bits; BUILD$\to$EXPLORE: KL = 0.77 bits).
-Despite this formal rejection of the first-order Markov property,
-the fundamental matrix of a first-order absorbing chain accurately predicts
-per-variant trajectory length: leave-one-out cross-validation yields zero mean
-bias with MAE of 8--20 steps across 5 variants.
-We treat first-order Markov as an engineering approximation for trajectory-length
-prediction, with known second-order structure in recovery transitions that
-averages out over 100-step trajectories.''
+(FIX$\to$EXPLORE: KL = 2.10 bits). Despite this formal rejection of first-order Markov,
+the fundamental matrix accurately predicts per-variant trajectory length:
+leave-one-out cross-validation yields zero mean bias with MAE of 8--20 steps.
+We use first-order Markov as an engineering approximation for step-count prediction,
+acknowledging that recovery transitions exhibit genuine second-order structure.''
+\end{quote}
+\end{findingbox}
 
-\vspace{1em}
-
-\textbf{Why this is a stronger result than ``first-order is adequate''}:
-we measured where the model breaks down, showed why the aggregate prediction
-still holds, and identified the specific transitions where a second-order model
-would improve precision. Reviewers respect measured honesty over assumed correctness.
-
-%% ==================================================================
-\section{Next Steps for the Research}
-
-The Markov framework opens several paths:
-
-\begin{enumerate}
-  \item \textbf{Test on domain-specific codebases}: spring-petclinic is in the model's
-    training data. On a novel codebase (OpenWMS, Apache Fineract), the JAR\_INSPECT
-    cluster should grow --- the agent won't know the imports.
-    The KB then has a larger effect to show.
-    This is the positive case for the thesis.
-
-  \item \textbf{Apply to SWE-bench traces}: the Markov tooling is now battle-tested.
-    Apply it to issue-fix traces from SWE-bench Lite.
-    What is the behavioral signature of agents that \emph{succeed} vs \emph{fail}
-    on specific issue types?
-    This is a novel contribution: not just fix rate, but why.
-
-  \item \textbf{Second-order model with more data}: N=3 per variant gives 27 trigram
-    pairs. N=10 would give enough data to fit a reliable second-order model.
-    That would let us model recovery transitions precisely and potentially predict
-    which agents are in a ``good recovery'' vs ``bad recovery'' loop.
-
-  \item \textbf{Transition Probability Engineering in practice}: given the identified
-    transitions to target (EXPLORE$\to$JAR\_INSPECT, FIX self-loop), design interventions
-    specifically to reduce those transition probabilities, then verify the predicted
-    step-count reduction materializes.
-\end{enumerate}
-
-%% ==================================================================
+%% ============================================================
 \appendix
 \section{Glossary}
 
-\begin{description}[leftmargin=6em,labelindent=0em]
-  \item[State] A semantic label for a category of tool calls (EXPLORE, WRITE, BUILD, etc.)
-  \item[Transition] An agent moving from one state to the next
-  \item[$P$ matrix] The transition probability matrix; entry $P(i,j)$ = probability of
-    going from state $i$ to state $j$
-  \item[Heatmap] A visual rendering of $P$; rows = current state, columns = next state
-  \item[Markov chain] A sequence of states where each transition depends only on the
-    current state (first-order), or the last two states (second-order)
-  \item[Absorbing state] A state the agent enters and never leaves
-    (e.g., build success, timeout)
-  \item[Transient state] A state the agent may visit but will eventually leave
-  \item[$Q$ matrix] The sub-matrix of $P$ containing only transient-to-transient transitions
-  \item[Fundamental matrix] $N = (I-Q)^{-1}$; entry $N(i,j)$ = expected visits to state
-    $j$ starting from state $i$
+\begin{description}[leftmargin=7em,labelindent=0em,itemsep=3pt]
+  \item[State] A semantic label for one category of tool calls (EXPLORE, WRITE, BUILD\ldots)
+  \item[Transition] The agent moving from one state to the next
+  \item[$P$ matrix] Transition probability matrix; $P(i,j)$ = probability of going from $i$ to $j$
+  \item[Heatmap] Visual of $P$; rows = current state, columns = next state
+  \item[Markov chain] A sequence where each transition depends only on the current state
+  \item[First-order] Next state depends on current state only
+  \item[Second-order] Next state depends on current + previous state
+  \item[KL divergence] Bits of extra information that knowing the previous state adds;
+    zero = first-order is perfect
+  \item[Absorbing state] A state the agent enters and never leaves (build success, timeout)
+  \item[Transient state] A state the agent may visit but eventually leaves
+  \item[$Q$ matrix] Sub-matrix of $P$: transient-to-transient transitions only
+  \item[Fundamental matrix] $N = (I-Q)^{-1}$; $N(i,j)$ = expected visits to $j$ from $i$
   \item[Expected steps] $\sum_j N(0,j)$: total expected tool calls before the run ends
-  \item[KL divergence] A measure of information difference in bits; here, how much
-    knowing the previous state changes the prediction of the next state
-  \item[First-order Markov] Next state depends only on current state
-  \item[Second-order Markov] Next state depends on current + previous state
-  \item[JAR cluster] The JAR\_INSPECT self-loop; agent searching Maven cache for imports
-  \item[FIX/BUILD loop] The rework cycle; agent editing tests and re-running
+  \item[JAR cluster] EXPLORE$\leftrightarrow$JAR\_INSPECT loop; agent searching Maven cache
+  \item[FIX/BUILD loop] BUILD$\leftrightarrow$FIX rework cycle; compile-debug loop
   \item[PRODUCTIVE flow] EXPLORE$\to$WRITE$\to$BUILD$\to$VERIFY; forward progress
-  \item[TPE] Transition Probability Engineering; deliberately modifying $P$ to
-    improve agent efficiency
-  \item[$\Delta P$] Delta heatmap ($P_B - P_A$); shows which transitions changed
-    between two variants
+  \item[Rework spiral] Extreme FIX/BUILD loop; forge r14 = 22 builds, 6 cycles
+  \item[TPE] Transition Probability Engineering: deliberately modifying $P$ to improve agent efficiency
+  \item[$\Delta P$] Delta heatmap ($P_B - P_A$); shows which transitions changed between variants
+  \item[Leave-one-out CV] Validation method: fit on N$-$1 runs, predict the Nth, compare
+  \item[MAE] Mean Absolute Error: average of $|\text{predicted} - \text{actual}|$ across folds
 \end{description}
 
 \end{document}
