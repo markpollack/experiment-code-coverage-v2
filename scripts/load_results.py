@@ -126,7 +126,9 @@ def extract_item_results(results: dict[str, dict],
             }
 
             if run_index_map is not None:
-                row["run_index"] = run_index_map.get((variant, item["itemSlug"]), 1)
+                run_idx = run_index_map.get((variant, item["itemSlug"]), 1)
+                row["run_index"] = run_idx
+                row["trace_id"] = f"{item['itemSlug']}_r{run_idx}"
 
             # Map scores to named columns (CUSTOMIZE: update SCORE_MAP above)
             for json_key, col_name in SCORE_MAP.items():
@@ -166,7 +168,9 @@ def extract_tool_uses(results: dict[str, dict],
                         "tool_target": target,
                     }
                     if run_index_map is not None:
-                        row["run_index"] = run_index_map.get((variant, item["itemSlug"]), 1)
+                        run_idx = run_index_map.get((variant, item["itemSlug"]), 1)
+                        row["run_index"] = run_idx
+                        row["trace_id"] = f"{item['itemSlug']}_r{run_idx}"
                     rows.append(row)
                     global_seq += 1
     return rows

@@ -26,6 +26,9 @@
         <logback.version>1.5.6</logback.version>
         <junit.version>5.10.1</junit.version>
         <assertj.version>3.24.2</assertj.version>
+
+        <!-- Default main class (override with -Dexec.mainClass=ai.tuvium.coverage.RejudgeApp) -->
+        <exec.mainClass>ai.tuvium.coverage.CoverageExperimentApp</exec.mainClass>
     </properties>
 
     <dependencies>
@@ -136,7 +139,7 @@
                 <artifactId>exec-maven-plugin</artifactId>
                 <version>3.1.0</version>
                 <configuration>
-                    <mainClass>ai.tuvium.coverage.CoverageExperimentApp</mainClass>
+                    <mainClass>${exec.mainClass}</mainClass>
                 </configuration>
             </plugin>
             <plugin>
