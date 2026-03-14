@@ -193,18 +193,34 @@ public class CoverageExperimentApp {
 	}
 
 	static JuryFactory buildJuryFactory(Path projectRoot) {
+		Path judgePromptPath = projectRoot.resolve("plans/prompts/judge-practice-adherence.txt");
+		logPromptHash(judgePromptPath);
 		return JuryFactory.builder()
 			.addJudge(0, BuildSuccessJudge.maven("clean", "test"))
 			.tierPolicy(0, TierPolicy.REJECT_ON_ANY_FAIL)
 			.addJudge(1, new CoveragePreservationJudge())
 			.tierPolicy(1, TierPolicy.REJECT_ON_ANY_FAIL)
-			.addJudge(2, new CoverageImprovementJudge())
+			.addJudge(2, new CoverageImprovementJudge(50.0, 80.0))
 			.tierPolicy(2, TierPolicy.ACCEPT_ON_ALL_PASS)
 			.addJudge(3, new TestQualityJudge(
 					TestQualityJudge.defaultAgentClientFactory("claude-sonnet-4-6", Duration.ofMinutes(3)),
-					projectRoot.resolve("plans/prompts/judge-practice-adherence.txt")))
+					judgePromptPath))
 			.tierPolicy(3, TierPolicy.FINAL_TIER)
 			.build();
+	}
+
+	private static void logPromptHash(Path promptPath) {
+		try {
+			byte[] bytes = Files.readAllBytes(promptPath);
+			java.security.MessageDigest md = java.security.MessageDigest.getInstance("SHA-256");
+			byte[] hash = md.digest(bytes);
+			StringBuilder hex = new StringBuilder();
+			for (byte b : hash) hex.append(String.format("%02x", b));
+			logger.info("T3 judge prompt SHA-256: {} ({})", hex.substring(0, 16), promptPath.getFileName());
+		}
+		catch (Exception ex) {
+			logger.warn("Could not hash T3 judge prompt: {}", ex.getMessage());
+		}
 	}
 
 	/**

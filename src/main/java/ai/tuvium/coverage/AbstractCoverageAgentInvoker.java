@@ -141,6 +141,9 @@ public abstract class AbstractCoverageAgentInvoker implements AgentInvoker {
 
 		long durationMs = System.currentTimeMillis() - startTime;
 
+		Path jacocoReport = workspace.resolve("target/site/jacoco/jacoco.xml");
+		boolean jacocoReportExists = Files.isRegularFile(jacocoReport);
+
 		Map<String, String> enrichedMetadata = new HashMap<>(context.metadata());
 		enrichedMetadata.put("baselineCoverage", String.valueOf(baseline.lineCoverage()));
 		enrichedMetadata.put("finalCoverage", String.valueOf(finalCov.lineCoverage()));
@@ -148,6 +151,8 @@ public abstract class AbstractCoverageAgentInvoker implements AgentInvoker {
 		enrichedMetadata.put("finalBranchCoverage", String.valueOf(finalCov.branchCoverage()));
 		enrichedMetadata.put("coverageImprovement", String.valueOf(improvement));
 		enrichedMetadata.put("skillsInstalled", String.valueOf(skillsInstall));
+		enrichedMetadata.put("jacocoReportRelPath", "target/site/jacoco/jacoco.xml");
+		enrichedMetadata.put("jacocoReportExists", String.valueOf(jacocoReportExists));
 
 		return InvocationResult.fromPhases(agentResult.phases(), durationMs,
 				agentResult.sessionId(), enrichedMetadata);

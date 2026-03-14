@@ -18,7 +18,7 @@
 
         <!-- Dependency versions — keep in sync with tuvium-experiment-driver -->
         <experiment-core.version>0.1.0-SNAPSHOT</experiment-core.version>
-        <agent-judge.version>0.9.0-SNAPSHOT</agent-judge.version>
+        <agent-judge.version>0.9.1-SNAPSHOT</agent-judge.version>
         <agent-client.version>0.10.0-SNAPSHOT</agent-client.version>
         <jackson.version>2.19.4</jackson.version>
         <snakeyaml.version>2.2</snakeyaml.version>
