@@ -35,9 +35,10 @@ PROJECT_ROOT = Path(__file__).resolve().parent.parent
 # Each key is the judge class name as it appears in results JSON "scores" map.
 # Each value is the column name in the output parquet.
 SCORE_MAP = {
-    # "MyJudge": "t0_success",
-    # "QualityJudge": "t1_quality",
-    # "PracticeJudge": "t2_practice",
+    "CommandJudge":              "t0_build",
+    "CoveragePreservationJudge": "t1_preservation",
+    "CoverageImprovementJudge":  "t2_improvement",
+    "Judge#1":                   "t3_quality",
 }
 
 
