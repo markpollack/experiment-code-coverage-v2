@@ -85,7 +85,7 @@ Two runs from the same experiment, same model, same task:
 & \textbf{Steps} & \textbf{BUILD calls} & \textbf{FIX calls} & \textbf{Cost} \\
 \midrule
 \textbf{hardened+skills+sae} (run 3, r17) & 69 & 8 & 2 & \$3.49 \\
-\textbf{hardened+skills+sae+forge} (run 2, r14) & 96 & \textbf{22} & 8 & \textbf{\$5.67} \\
+\textbf{hardened+skills+sae+plan-act} (run 2, r14) & 96 & \textbf{22} & 8 & \textbf{\$5.67} \\
 \bottomrule
 \end{tabular}
 \end{center}
@@ -98,9 +98,9 @@ The spiral run cost 63\% more and took 43 minutes instead of 26.
 \centering
 \includegraphics[width=\textwidth]{../figures/cost-steps-comparison.png}
 \caption{Mean cost (USD) and mean step count per variant across all runs.
-         Red bar = the spiral variant (forge). Blue = all others.
+         Red bar = the spiral variant (plan-act). Blue = all others.
          Error bars show standard deviation across N=3 runs per variant.
-         The forge variant has the highest variance --- it can be the best or worst run
+         The plan-act variant has the highest variance --- it can be the best or worst run
          depending on whether the agent hits a rework spiral.}
 \end{figure}
 
@@ -108,11 +108,11 @@ Why? What happened inside that agent during those 22 build attempts?
 That is what this document is trying to explain.
 
 %% ============================================================
-\section{Step 1 --- Label Every Move (The 8 States)}
+\section{Step 1 --- Label Every Move (The 9 States)}
 
 An AI agent makes tool calls.
 Each call is a concrete action: read a file, run the build, write a test, edit a failure.
-The first thing we do is \textbf{group these into 8 semantic categories} --- states.
+The first thing we do is \textbf{group these into 9 semantic categories} --- states.
 
 \begin{table}[H]
 \centering
@@ -120,17 +120,18 @@ The first thing we do is \textbf{group these into 8 semantic categories} --- sta
 \toprule
 \textbf{State} & \textbf{What is happening} & \textbf{What tool calls look like} \\
 \midrule
-EXPLORE     & Navigating the codebase          & Read, Glob, Grep on source files \\
+EXPLORE     & Navigating the codebase (targeted)  & Read, Glob, Grep on known paths \\
+SHELL       & Searching the codebase (unstructured)& Bash: find, ls, grep, cat, tree \\
 READ\_KB    & Consulting the knowledge base    & Read on \texttt{knowledge/} directory \\
 READ\_SKILL & Loading a skills package         & Skill tool invocation \\
-JAR\_INSPECT& Searching Maven cache for imports& Bash: \texttt{jar tf \textasciitilde/.m2/...} \\
+JAR\_INSPECT& Searching Maven cache for imports& Bash: \texttt{jar tf}, \texttt{javap} \\
 WRITE       & Writing test files               & Write on \texttt{src/test/} \\
 BUILD       & Running the test suite           & Bash: \texttt{./mvnw clean test} \\
 VERIFY      & Checking coverage results        & Read on JaCoCo report \\
 FIX         & Editing tests after failure      & Edit on \texttt{src/test/} \\
 \bottomrule
 \end{tabular}
-\caption{The 8 states. Every tool call maps to exactly one.}
+\caption{The 9 states. Every tool call maps to exactly one.}
 \end{table}
 
 Each run is now a sequence of labels:
@@ -278,7 +279,7 @@ The agent writes tests. BUILD fails. Agent edits (FIX). BUILD again. Maybe fails
 Edit again. The loop continues until the tests compile and pass.
 
 \textbf{The spiral case}:
-In our data, \texttt{hardened+skills+sae+forge} run 2 (r14) is the clearest spiral:
+In our data, \texttt{hardened+skills+sae+plan-act} run 2 (r14) is the clearest spiral:
 
 \begin{codebox}
 96 total steps --- 22 BUILD calls --- 8 FIX calls --- 6 FIX$\to$BUILD cycles
@@ -293,7 +294,7 @@ Duration: 26 minutes --- Cost: \$3.49
 \end{codebox}
 
 22 builds versus 8. \$5.67 versus \$3.49. 43 minutes versus 26.
-The forge two-phase design (deep exploration first, then a sustained act phase)
+The plan-act two-phase design (deep exploration first, then a sustained act phase)
 seems to produce more thorough initial test writing ---
 but when that writing hits a compilation problem, the agent retries aggressively.
 
@@ -301,13 +302,13 @@ but when that writing hits a compilation problem, the agent retries aggressively
 The FIX/BUILD loop appears as mutual high probability between BUILD and FIX rows.
 $P(\text{BUILD} \to \text{FIX})$ and $P(\text{FIX} \to \text{BUILD})$ are both elevated
 in variants with high rework.
-Compare the forge variant (the spiral) to the cleanest variant below:
+Compare the plan-act variant (the spiral) to the cleanest variant below:
 
 \begin{figure}[H]
 \centering
 \begin{minipage}[t]{0.48\textwidth}
   \includegraphics[width=\textwidth]{../figures/heatmap-hardened-skills-sae-forge.png}
-  \caption*{\textbf{hardened+skills+sae+forge} (spiral variant):
+  \caption*{\textbf{hardened+skills+sae+plan-act} (spiral variant):
             BUILD$\to$FIX and FIX$\to$BUILD cells are both orange/red.
             The agent bounces between them. r14: 22 builds, \$5.67.}
 \end{minipage}\hfill
@@ -319,7 +320,7 @@ Compare the forge variant (the spiral) to the cleanest variant below:
 \end{minipage}
 \caption{The FIX/BUILD rework loop in the heatmap.
          Bright mutual probability between BUILD and FIX rows = the agent is cycling.
-         The forge variant's two-phase design produces more aggressive rework when
+         The plan-act variant's two-phase design produces more aggressive rework when
          compilation fails; the \texttt{hardened+skills+sae} variant exits the loop sooner.}
 \end{figure}
 
@@ -346,7 +347,7 @@ are money being spent on friction and rework.
 \centering
 \begin{minipage}[t]{0.48\textwidth}
   \includegraphics[width=\textwidth]{../figures/sankey-flow-hardened+skills+sae+forge.png}
-  \caption*{\textbf{Inefficient}: hardened+skills+sae+forge.
+  \caption*{\textbf{Inefficient}: hardened+skills+sae+plan-act.
             Wide FIX$\leftrightarrow$BUILD arcs dominate.
             Worst run (r14): 22 builds, \$5.67, 43 min.}
 \end{minipage}\hfill
@@ -587,11 +588,11 @@ Beyond the total step count, $N$ gives you per-state expected visits:
   \item $N(0, \text{BUILD})$ = expected build attempts per run
 \end{itemize}
 
-For the spiral run (forge r14) versus the clean run (r17):
+For the spiral run (plan-act r14) versus the clean run (r17):
 \begin{itemize}
-  \item forge r14 contributes $N(0, \text{BUILD}) \approx 22$ to the expected value calculation
+  \item plan-act r14 contributes $N(0, \text{BUILD}) \approx 22$ to the expected value calculation
   \item r17 contributes $N(0, \text{BUILD}) \approx 8$
-  \item The expected value for forge across 3 runs lands at $\approx 15$ expected BUILD steps
+  \item The expected value for plan-act across 3 runs lands at $\approx 15$ expected BUILD steps
 \end{itemize}
 
 The matrix is not just a step-count oracle.
@@ -602,7 +603,7 @@ It is a \textbf{decomposition of where agent time goes}, per state.
 \includegraphics[width=\textwidth]{../figures/fundamental-matrix-analysis.png}
 \caption{Fundamental matrix: expected visits per state.
          Large diagonal entries are loops.
-         The BUILD row for forge variants reflects rework.
+         The BUILD row for plan-act variants reflects rework.
          The JAR\_INSPECT row shrinks dramatically with skills.}
 \end{figure}
 
@@ -755,7 +756,7 @@ hardened+kb             &  82.3 & $-$25\%  & 0.847 & 0.022 \\
 hardened+sae            &  79.7 & $-$27\%  & 0.789 & 0.028 \\
 hardened+skills         & 101.0 &  $-$7\%  & 0.856 & 0.021 \\
 hardened+skills+sae     &  74.7 & $-$31\%  & 0.850 & 0.014 \\
-hardened+skills+sae+forge & 94.3 & $-$14\% & 0.878 & 0.075 \\
+hardened+skills+sae+plan-act & 94.3 & $-$14\% & 0.878 & 0.075 \\
 \bottomrule
 \end{tabular}
 \caption{Two-axis comparison: efficiency (steps) and quality (T3 score, mean $\pm$ std, N=2--3 runs).}
@@ -901,7 +902,7 @@ acknowledging that recovery transitions exhibit genuine second-order structure.'
   \item[JAR cluster] EXPLORE$\leftrightarrow$JAR\_INSPECT loop; agent searching Maven cache
   \item[FIX/BUILD loop] BUILD$\leftrightarrow$FIX rework cycle; compile-debug loop
   \item[PRODUCTIVE flow] EXPLORE$\to$WRITE$\to$BUILD$\to$VERIFY; forward progress
-  \item[Rework spiral] Extreme FIX/BUILD loop; forge r14 = 22 builds, 6 cycles
+  \item[Rework spiral] Extreme FIX/BUILD loop; plan-act r14 = 22 builds, 6 cycles
   \item[TPE] Transition Probability Engineering: deliberately modifying $P$ to improve agent efficiency
   \item[$\Delta P$] Delta heatmap ($P_B - P_A$); shows which transitions changed between variants
   \item[Leave-one-out CV] Validation method: fit on N$-$1 runs, predict the Nth, compare
