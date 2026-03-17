@@ -84,8 +84,8 @@ Two runs from the same experiment, same model, same task:
 \toprule
 & \textbf{Steps} & \textbf{BUILD calls} & \textbf{FIX calls} & \textbf{Cost} \\
 \midrule
-\textbf{hardened+skills+sae} (run 3, r17) & 69 & 8 & 2 & \$3.49 \\
-\textbf{hardened+skills+sae+plan-act} (run 2, r14) & 96 & \textbf{22} & 8 & \textbf{\$5.67} \\
+\textbf{hardened+skills+pre-analysis} (run 3, r17) & 69 & 8 & 2 & \$3.49 \\
+\textbf{hardened+skills+pre-analysis+plan-act} (run 2, r14) & 96 & \textbf{22} & 8 & \textbf{\$5.67} \\
 \bottomrule
 \end{tabular}
 \end{center}
@@ -262,7 +262,7 @@ simple                  & 7.9\%  & Baseline, hits some import gaps \\
 hardened                & 11.0\% & Thorough without direction: maximum search \\
 hardened+kb             & 10.1\% & KB reduces gaps but doesn't eliminate them \\
 hardened+skills         & 1.0\%  & Skills provides the answer: no search needed \\
-hardened+skills+sae     & 7.1\%  & pre-analysis trades some JAR reduction for step efficiency \\
+hardened+skills+pre-analysis     & 7.1\%  & pre-analysis trades some JAR reduction for step efficiency \\
 \bottomrule
 \end{tabular}
 \end{center}
@@ -279,14 +279,14 @@ The agent writes tests. BUILD fails. Agent edits (FIX). BUILD again. Maybe fails
 Edit again. The loop continues until the tests compile and pass.
 
 \textbf{The spiral case}:
-In our data, \texttt{hardened+skills+sae+plan-act} run 2 (r14) is the clearest spiral:
+In our data, \texttt{hardened+skills+pre-analysis+plan-act} run 2 (r14) is the clearest spiral:
 
 \begin{codebox}
 96 total steps --- 22 BUILD calls --- 8 FIX calls --- 6 FIX$\to$BUILD cycles
 Duration: 43 minutes --- Cost: \$5.67
 \end{codebox}
 
-Compare to the cleanest run in the dataset (\texttt{hardened+skills+sae}, run 3, r17):
+Compare to the cleanest run in the dataset (\texttt{hardened+skills+pre-analysis}, run 3, r17):
 
 \begin{codebox}
 69 total steps --- 8 BUILD calls --- 2 FIX calls --- 1 FIX$\to$BUILD cycle
@@ -308,20 +308,20 @@ Compare the plan-act variant (the spiral) to the cleanest variant below:
 \centering
 \begin{minipage}[t]{0.48\textwidth}
   \includegraphics[width=\textwidth]{../figures/heatmap-hardened-skills-sae-forge.png}
-  \caption*{\textbf{hardened+skills+sae+plan-act} (spiral variant):
+  \caption*{\textbf{hardened+skills+pre-analysis+plan-act} (spiral variant):
             BUILD$\to$FIX and FIX$\to$BUILD cells are both orange/red.
             The agent bounces between them. r14: 22 builds, \$5.67.}
 \end{minipage}\hfill
 \begin{minipage}[t]{0.48\textwidth}
   \includegraphics[width=\textwidth]{../figures/heatmap-hardened-skills-sae.png}
-  \caption*{\textbf{hardened+skills+sae} (clean variant):
+  \caption*{\textbf{hardened+skills+pre-analysis} (clean variant):
             FIX$\to$BUILD cell is dimmer. Fewer rework cycles.
             r17: 8 builds, \$3.49.}
 \end{minipage}
 \caption{The FIX/BUILD rework loop in the heatmap.
          Bright mutual probability between BUILD and FIX rows = the agent is cycling.
          The plan-act variant's two-phase design produces more aggressive rework when
-         compilation fails; the \texttt{hardened+skills+sae} variant exits the loop sooner.}
+         compilation fails; the \texttt{hardened+skills+pre-analysis} variant exits the loop sooner.}
 \end{figure}
 
 \subsection{The PRODUCTIVE Flow --- What We Want More Of}
@@ -336,7 +336,7 @@ The agent arrives at WRITE already knowing what to write.
 Each WRITE step is more targeted.
 Fewer FIX/BUILD loops follow.
 
-The step-count difference between simple (109 steps) and hardened+skills+sae (75 steps)
+The step-count difference between simple (109 steps) and hardened+skills+pre-analysis (75 steps)
 is not abstract --- it is specific transitions that shifted.
 
 The Sankey diagram makes the difference visceral.
@@ -347,13 +347,13 @@ are money being spent on friction and rework.
 \centering
 \begin{minipage}[t]{0.48\textwidth}
   \includegraphics[width=\textwidth]{../figures/sankey-flow-hardened+skills+sae+forge.png}
-  \caption*{\textbf{Inefficient}: hardened+skills+sae+plan-act.
+  \caption*{\textbf{Inefficient}: hardened+skills+pre-analysis+plan-act.
             Wide FIX$\leftrightarrow$BUILD arcs dominate.
             Worst run (r14): 22 builds, \$5.67, 43 min.}
 \end{minipage}\hfill
 \begin{minipage}[t]{0.48\textwidth}
   \includegraphics[width=\textwidth]{../figures/sankey-flow-hardened+skills+sae.png}
-  \caption*{\textbf{Efficient}: hardened+skills+sae.
+  \caption*{\textbf{Efficient}: hardened+skills+pre-analysis.
             Flow goes straight: EXPLORE $\to$ WRITE $\to$ BUILD $\to$ VERIFY.
             Best run (r17): 8 builds, \$3.49, 26 min.}
 \end{minipage}
@@ -564,9 +564,9 @@ Compare to what actually happened.
 \midrule
 hardened            & 100.7 & 100.7 & 19.7 \\
 hardened+kb         &  82.3 &  82.3 &  8.3 \\
-hardened+sae        &  79.7 &  79.7 & 13.3 \\
+hardened+pre-analysis        &  79.7 &  79.7 & 13.3 \\
 hardened+skills     & 101.0 & 101.0 & 11.0 \\
-hardened+skills+sae &  74.7 &  74.7 & 10.3 \\
+hardened+skills+pre-analysis &  74.7 &  74.7 & 10.3 \\
 \bottomrule
 \end{tabular}
 \end{center}
@@ -753,10 +753,10 @@ Score range: 0.0--1.0.
 simple                  & 109.0 & baseline & 0.783 & 0.050 \\
 hardened                & 100.7 &  $-$8\%  & 0.850 & 0.014 \\
 hardened+kb             &  82.3 & $-$25\%  & 0.847 & 0.022 \\
-hardened+sae            &  79.7 & $-$27\%  & 0.789 & 0.028 \\
+hardened+pre-analysis            &  79.7 & $-$27\%  & 0.789 & 0.028 \\
 hardened+skills         & 101.0 &  $-$7\%  & 0.856 & 0.021 \\
-hardened+skills+sae     &  74.7 & $-$31\%  & 0.850 & 0.014 \\
-hardened+skills+sae+plan-act & 94.3 & $-$14\% & 0.878 & 0.075 \\
+hardened+skills+pre-analysis     &  74.7 & $-$31\%  & 0.850 & 0.014 \\
+hardened+skills+pre-analysis+plan-act & 94.3 & $-$14\% & 0.878 & 0.075 \\
 \bottomrule
 \end{tabular}
 \caption{Two-axis comparison: efficiency (steps) and quality (T3 score, mean $\pm$ std, N=2--3 runs).}
@@ -771,11 +771,11 @@ hardened+skills+sae+plan-act & 94.3 & $-$14\% & 0.878 & 0.075 \\
     All knowledge variants build on top of this.
 
   \item \textbf{pre-analysis drives efficiency at a quality cost.}
-    hardened+sae: $-$27\% steps, but quality drops to 0.789 (back near simple's 0.783).
+    hardened+pre-analysis: $-$27\% steps, but quality drops to 0.789 (back near simple's 0.783).
     pre-analysis hurries the agent through the task --- sometimes at the cost of test depth.
 
   \item \textbf{Skills compensate for pre-analysis's quality regression.}
-    hardened+skills+sae: $-$31\% steps AND 0.850 quality (equal to hardened alone).
+    hardened+skills+pre-analysis: $-$31\% steps AND 0.850 quality (equal to hardened alone).
     Skills acts as a quality stabilizer when pre-analysis is present.
 
   \item \textbf{KB is a pure efficiency play on known codebases.}

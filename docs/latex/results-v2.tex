@@ -96,16 +96,16 @@ They build additively from a minimal prompt up to a two-phase exploration+action
 \texttt{hardened+kb}
   & Hardened prompt plus a flat knowledge base: Spring test annotation imports,
     JaCoCo configuration, petclinic package structure. \\
-\texttt{hardened+sae}
+\texttt{hardened+pre-analysis}
   & Hardened prompt plus Structured Analysis and Exploration (pre-analysis):
     a mandatory pre-analysis pass before writing any tests. \\
 \texttt{hardened+skills}
   & Hardened prompt plus SkillsJars: structured, modular knowledge packages
     delivered as callable skills. \\
-\texttt{hardened+skills+sae}
+\texttt{hardened+skills+pre-analysis}
   & Skills plus pre-analysis together: structured knowledge delivery and
     mandatory pre-analysis. \\
-\texttt{hardened+skills+sae+plan-act}
+\texttt{hardened+skills+pre-analysis+plan-act}
   & Two-phase design: a deep exploration phase followed by a sustained act phase.
     The most structured variant. \\
 \bottomrule
@@ -138,8 +138,8 @@ Before the summary tables: two real runs, same model, same task.
 \toprule
 & \textbf{Total calls} & \textbf{BUILD calls} & \textbf{Cost} & \textbf{Duration} \\
 \midrule
-\textbf{hardened+skills+sae} (run 17) & 69 & 11 & \$3.49 & 26 min \\
-\textbf{hardened+skills+sae+plan-act} (run 14) & 97 & \textbf{23} & \textbf{\$5.67} & 43 min \\
+\textbf{hardened+skills+pre-analysis} (run 17) & 69 & 11 & \$3.49 & 26 min \\
+\textbf{hardened+skills+pre-analysis+plan-act} (run 14) & 97 & \textbf{23} & \textbf{\$5.67} & 43 min \\
 \bottomrule
 \end{tabular}
 \end{center}
@@ -177,10 +177,10 @@ on the goal of \emph{producing good tests}.
 \textbf{Variant} & \textbf{N} & \textbf{Mean steps} & \textbf{$\pm$} &
   \textbf{Mean cost} & \textbf{T3 quality} & \textbf{$\pm$} \\
 \midrule
-\texttt{hardened+skills+sae}     & 3 &  75.0 & 8.7  & \$3.39 & 0.850 & 0.017 \\
-\texttt{hardened+sae}            & 3 &  80.3 & 12.1 & \$3.41 & 0.789 & 0.035 \\
+\texttt{hardened+skills+pre-analysis}     & 3 &  75.0 & 8.7  & \$3.39 & 0.850 & 0.017 \\
+\texttt{hardened+pre-analysis}            & 3 &  80.3 & 12.1 & \$3.41 & 0.789 & 0.035 \\
 \texttt{hardened+kb}             & 3 &  83.3 & 7.4  & \$3.21 & 0.847 & 0.027 \\
-\texttt{hardened+skills+sae+plan-act} & 3 & 95.0 & 11.1 & \$5.11 & 0.878 & 0.092 \\
+\texttt{hardened+skills+pre-analysis+plan-act} & 3 & 95.0 & 11.1 & \$5.11 & 0.878 & 0.092 \\
 \texttt{hardened+skills}         & 3 & 101.7 & 10.1 & \$3.70 & 0.856 & 0.025 \\
 \texttt{hardened}                & 3 & 103.0 & 17.8 & \$4.08 & 0.850 & 0.017 \\
 \texttt{simple}                  & 2 & 109.5 & 13.4 & \$3.47 & 0.783 & 0.071 \\
@@ -192,7 +192,7 @@ on the goal of \emph{producing good tests}.
 \end{table}
 
 \begin{warningbox}
-\textbf{The plan-act paradox}: \texttt{hardened+skills+sae+plan-act} ranks 4th on efficiency
+\textbf{The plan-act paradox}: \texttt{hardened+skills+pre-analysis+plan-act} ranks 4th on efficiency
 (95 mean steps) but has the highest mean quality (0.878) \emph{and} the highest standard
 deviation (0.092). Its best run (run 15: \$5.80, T3=0.967) and worst run (run 14:
 \$5.67, 23 builds, spiral) are the extremes of the entire dataset.
@@ -217,7 +217,7 @@ no external knowledge, just discipline.
 \begin{findingbox}
 \textbf{Finding 2: pre-analysis drives efficiency at a quality cost.}
 
-\texttt{hardened} $\to$ \texttt{hardened+sae}: $-$22\% steps,
+\texttt{hardened} $\to$ \texttt{hardened+pre-analysis}: $-$22\% steps,
 but quality drops to 0.789 --- back near \texttt{simple}'s 0.783.
 
 pre-analysis's mandatory pre-analysis pass front-loads exploration and produces a tighter
@@ -231,7 +231,7 @@ behaviors that a less constrained agent would discover during exploration.
 \begin{findingbox}
 \textbf{Finding 3: Skills compensate for pre-analysis's quality regression.}
 
-\texttt{hardened+skills+sae}: $-$31\% steps vs simple, quality = 0.850 ---
+\texttt{hardened+skills+pre-analysis}: $-$31\% steps vs simple, quality = 0.850 ---
 matching \texttt{hardened} alone, despite being 28 steps shorter.
 
 Skills provide structured domain knowledge: correct test patterns, annotation imports,
@@ -276,7 +276,7 @@ eliminates it entirely.
 \texttt{hardened}            & 17.7\% & 38.0\% & prompt only (more thorough, no direction) \\
 \texttt{hardened+kb}         & 15.0\% & 30.8\% & flat KB helps but doesn't eliminate \\
 \texttt{hardened+skills}     &  1.7\% & 13.4\% & skills answer the import directly \\
-\texttt{hardened+skills+sae} &  8.5\% & 17.9\% & pre-analysis reduces search overhead \\
+\texttt{hardened+skills+pre-analysis} &  8.5\% & 17.9\% & pre-analysis reduces search overhead \\
 \bottomrule
 \end{tabular}
 \end{center}
@@ -298,9 +298,9 @@ maximum searching.
 When tests fail to compile or run, the agent edits (FIX) and rebuilds (BUILD).
 One or two FIX$\to$BUILD cycles is normal. Six consecutive cycles is a spiral.
 
-The heatmap for \texttt{hardened+skills+sae+plan-act} shows mutual high probability
+The heatmap for \texttt{hardened+skills+pre-analysis+plan-act} shows mutual high probability
 between the BUILD and FIX rows: $P(\text{BUILD}\to\text{FIX})$ and
-$P(\text{FIX}\to\text{BUILD})$ both elevated. Compare to \texttt{hardened+skills+sae}:
+$P(\text{FIX}\to\text{BUILD})$ both elevated. Compare to \texttt{hardened+skills+pre-analysis}:
 the FIX row is dimmer, fewer cycles, cleaner exit.
 
 The plan-act variant's two-phase design (deep explore, then sustained act) produces
@@ -344,9 +344,9 @@ predict the held-out run's step count from the fundamental matrix $N = (I-Q)^{-1
 \midrule
 \texttt{hardened}            & 103.0 & 103.0 & 19.7 \\
 \texttt{hardened+kb}         &  83.3 &  83.3 &  8.3 \\
-\texttt{hardened+sae}        &  80.3 &  80.3 & 13.3 \\
+\texttt{hardened+pre-analysis}        &  80.3 &  80.3 & 13.3 \\
 \texttt{hardened+skills}     & 101.7 & 101.7 & 11.0 \\
-\texttt{hardened+skills+sae} &  75.0 &  75.0 & 10.3 \\
+\texttt{hardened+skills+pre-analysis} &  75.0 &  75.0 & 10.3 \\
 \bottomrule
 \end{tabular}
 \end{center}
@@ -402,7 +402,7 @@ Consequences:
   \item The JAR cluster is addressable via knowledge injection.
     Skills reduce it from 11\% to 1\% regardless of domain familiarity.
   \item The FIX/BUILD spiral risk is variant-specific.
-    plan-act has it; \texttt{hardened+skills+sae} does not.
+    plan-act has it; \texttt{hardened+skills+pre-analysis} does not.
 \end{itemize}
 
 \textbf{What petclinic is}: the negative control.
@@ -446,8 +446,8 @@ and write tests that extend coverage without duplicating them.
   \item \texttt{hardened} --- structured prompt
   \item \texttt{hardened+kb} --- flat KB with loan domain files
   \item \texttt{hardened+skills} --- SkillsJars with same content
-  \item \texttt{hardened+skills+sae} --- skills + pre-analysis
-  \item \texttt{hardened+skills+sae+plan-act} --- two-phase
+  \item \texttt{hardened+skills+pre-analysis} --- skills + pre-analysis
+  \item \texttt{hardened+skills+pre-analysis+plan-act} --- two-phase
 \end{enumerate}
 
 \textbf{Success criterion}: at least one KB variant ($+$kb or $+$skills)
@@ -470,7 +470,7 @@ If no: efficiency is the only measurable benefit, and the thesis requires refine
     Tight plans miss edge cases.
 
   \item \textbf{Skills fix pre-analysis's quality regression.}
-    \texttt{hardened+skills+sae}: $-$31\% steps, quality matches \texttt{hardened}.
+    \texttt{hardened+skills+pre-analysis}: $-$31\% steps, quality matches \texttt{hardened}.
     Best tradeoff in the experiment.
 
   \item \textbf{KB and skills reduce JAR friction but not quality on known codebases.}
