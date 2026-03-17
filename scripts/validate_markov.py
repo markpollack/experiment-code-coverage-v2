@@ -25,10 +25,10 @@ from pathlib import Path
 import duckdb
 import numpy as np
 import pandas as pd
-from scipy.stats import chi2
 
 from markov_agent_analysis.transitions import apply_classify
 from markov_agent_analysis.fundamental import build_absorbing_chain_from_traces, compute_fundamental_matrix
+from markov_agent_analysis.validation import run_second_order_test, run_stationarity_test
 
 # ---------------------------------------------------------------------------
 # Paths
@@ -49,7 +49,6 @@ sys.path.insert(0, str(PROJECT_ROOT / "scripts"))
 from make_markov_analysis import classify_state, STATES  # noqa: E402
 
 N_STATES = len(STATES)
-STATE_IDX = {s: i for i, s in enumerate(STATES)}
 
 # ---------------------------------------------------------------------------
 # Data loading
@@ -103,208 +102,11 @@ def load_data(include_v1: bool = False) -> tuple[pd.DataFrame, pd.DataFrame, str
 
 
 # ---------------------------------------------------------------------------
-# Analysis 1: Second-Order Markov Test
-# ---------------------------------------------------------------------------
-
-def trace_key_col(classified: pd.DataFrame) -> str:
-    """Return 'trace_id' if present (multi-run ETL), else 'item_id' (single-run).
-
-    trace_id = '{item_id}_r{run_index}' is written by load_results.py --multi-run.
-    Using it as the grouping key ensures run boundaries are never counted as
-    within-run transitions — no hot-fixing needed at analysis time.
-    """
-    return "trace_id" if "trace_id" in classified.columns else "item_id"
-
-
-def build_bigrams_trigrams(classified: pd.DataFrame) -> tuple[dict, dict, dict]:
-    """Pool bigram and trigram counts across all variants and traces.
-
-    Each independent trace (one run of one item) is processed separately so
-    run boundaries are not counted as transitions. Uses trace_id when available
-    (multi-run data), falls back to item_id for single-run data.
-    """
-    bigrams: dict[tuple, int] = {}
-    trigrams: dict[tuple, int] = {}
-    state_counts: dict[str, int] = {}
-    tkey = trace_key_col(classified)
-
-    for _, group in classified.groupby(["variant", tkey], sort=False):
-        seq = group.sort_values("global_seq")["semantic_state"].tolist()
-        for s in seq:
-            state_counts[s] = state_counts.get(s, 0) + 1
-        for a, b in zip(seq[:-1], seq[1:]):
-            bigrams[(a, b)] = bigrams.get((a, b), 0) + 1
-        for a, b, c in zip(seq[:-2], seq[1:-1], seq[2:]):
-            trigrams[(a, b, c)] = trigrams.get((a, b, c), 0) + 1
-
-    return bigrams, trigrams, state_counts
-
-
-def kl_divergence(p: np.ndarray, q: np.ndarray, eps: float = 1e-10) -> float:
-    """KL(p || q) in bits, ignoring zero entries in p."""
-    p, q = np.asarray(p, float), np.asarray(q, float)
-    mask = p > 0
-    if not mask.any():
-        return 0.0
-    q_safe = np.where(mask, np.maximum(q, eps), 1.0)
-    return float(np.sum(p[mask] * np.log2(p[mask] / q_safe[mask])))
-
-
-def second_order_test(classified: pd.DataFrame) -> dict:
-    """KL divergence + likelihood ratio test for second-order Markov property."""
-    bigrams, trigrams, _ = build_bigrams_trigrams(classified)
-
-    # First-order P1[curr] = distribution over next states
-    bigram_from: dict[str, int] = {}
-    for (a, _), cnt in bigrams.items():
-        bigram_from[a] = bigram_from.get(a, 0) + cnt
-
-    def p1_dist(curr: str) -> np.ndarray:
-        dist = np.zeros(N_STATES)
-        total = bigram_from.get(curr, 0)
-        if total == 0:
-            return dist
-        for (a, b), cnt in bigrams.items():
-            if a == curr and b in STATE_IDX:
-                dist[STATE_IDX[b]] += cnt
-        return dist / total
-
-    # Group trigrams by (prev, curr)
-    trigram_groups: dict[tuple, dict] = {}
-    for (a, b, c), cnt in trigrams.items():
-        trigram_groups.setdefault((a, b), {})[c] = \
-            trigram_groups.get((a, b), {}).get(c, 0) + cnt
-
-    kl_rows = []
-    lr_stat = 0.0
-
-    for (prev, curr), next_counts in trigram_groups.items():
-        total = sum(next_counts.values())
-        if total < 3:
-            continue
-
-        p2 = np.zeros(N_STATES)
-        for nxt, cnt in next_counts.items():
-            if nxt in STATE_IDX:
-                p2[STATE_IDX[nxt]] += cnt
-        if p2.sum() == 0:
-            continue
-        p2 /= p2.sum()
-
-        p1 = p1_dist(curr)
-        kl = kl_divergence(p2, p1)
-        kl_rows.append({"prev": prev, "curr": curr, "n_obs": total,
-                         "kl_bits": round(kl, 4)})
-
-        for nxt, cnt in next_counts.items():
-            if nxt in STATE_IDX:
-                p2_k = p2[STATE_IDX[nxt]]
-                p1_k = p1[STATE_IDX[nxt]]
-                if p2_k > 0 and p1_k > 0:
-                    lr_stat += 2 * cnt * np.log(p2_k / p1_k)
-
-    if not kl_rows:
-        return {"kl_rows": [], "mean_kl": 0.0, "max_kl": 0.0,
-                "n_pairs_tested": 0, "lr_stat": 0.0, "lr_df": 0,
-                "lr_pvalue": 1.0, "verdict": "insufficient data"}
-
-    kl_vals = [r["kl_bits"] for r in kl_rows]
-    mean_kl = float(np.mean(kl_vals))
-    max_kl = float(np.max(kl_vals))
-    pairs_tested = len(kl_rows)
-    lr_df = pairs_tested * (N_STATES - 1)
-    lr_pvalue = float(1 - chi2.cdf(lr_stat, lr_df)) if lr_df > 0 else 1.0
-
-    if mean_kl < 0.05:
-        verdict = "FIRST-ORDER ADEQUATE (mean KL < 0.05 bits)"
-    elif mean_kl < 0.20:
-        verdict = "MODEST SECOND-ORDER DEPENDENCE (0.05–0.20 bits)"
-    else:
-        verdict = "SIGNIFICANT SECOND-ORDER DEPENDENCE (≥ 0.20 bits)"
-
-    return {
-        "kl_rows": sorted(kl_rows, key=lambda r: -r["kl_bits"]),
-        "mean_kl": mean_kl,
-        "max_kl": max_kl,
-        "n_pairs_tested": pairs_tested,
-        "lr_stat": lr_stat,
-        "lr_df": lr_df,
-        "lr_pvalue": lr_pvalue,
-        "verdict": verdict,
-    }
-
-
-# ---------------------------------------------------------------------------
-# Analysis 2: Stationarity Test
-# ---------------------------------------------------------------------------
-
-def build_transition_matrix_from_seq(seq: list[str]) -> np.ndarray:
-    counts = np.zeros((N_STATES, N_STATES), dtype=float)
-    for a, b in zip(seq[:-1], seq[1:]):
-        if a in STATE_IDX and b in STATE_IDX:
-            counts[STATE_IDX[a], STATE_IDX[b]] += 1
-    row_sums = counts.sum(axis=1, keepdims=True)
-    P = counts.copy()
-    nonzero = row_sums.flatten() > 0
-    P[nonzero] /= row_sums[nonzero]
-    return P
-
-
-def frobenius_distance(P: np.ndarray, Q: np.ndarray) -> float:
-    return float(np.linalg.norm(P - Q, "fro")) / N_STATES
-
-
-def stationarity_test(classified: pd.DataFrame) -> dict:
-    rows = []
-    per_variant_P: dict[str, np.ndarray] = {}
-
-    tkey = trace_key_col(classified)
-    for variant, vdf in classified.groupby("variant"):
-        # Concatenate runs in order, respecting trace boundaries.
-        # trace_id groups (multi-run) or item_id groups (single-run) are each one trace.
-        seqs = []
-        for _, tdf in vdf.groupby(tkey, sort=True):
-            seqs.extend(tdf.sort_values("global_seq")["semantic_state"].tolist())
-        seq = seqs
-        n = len(seq)
-        if n < 10:
-            rows.append({"variant": variant, "n_steps": n, "n_early": "—",
-                         "n_late": "—", "frobenius": None, "note": "too few steps"})
-            continue
-        mid = n // 2
-        P_early = build_transition_matrix_from_seq(seq[:mid])
-        P_late = build_transition_matrix_from_seq(seq[mid:])
-        frob = frobenius_distance(P_early, P_late)
-        rows.append({"variant": variant, "n_steps": n, "n_early": mid,
-                     "n_late": n - mid, "frobenius": round(frob, 4), "note": ""})
-        per_variant_P[variant] = build_transition_matrix_from_seq(seq)
-
-    variants_list = list(per_variant_P)
-    cross_distances = [
-        frobenius_distance(per_variant_P[variants_list[i]], per_variant_P[variants_list[j]])
-        for i in range(len(variants_list))
-        for j in range(i + 1, len(variants_list))
-    ]
-
-    valid = [r["frobenius"] for r in rows if r["frobenius"] is not None]
-    mean_within = float(np.mean(valid)) if valid else 0.0
-    max_within = float(np.max(valid)) if valid else 0.0
-    mean_cross = float(np.mean(cross_distances)) if cross_distances else 0.0
-
-    if mean_within < 0.10:
-        verdict = "STATIONARY (mean Frobenius drift < 0.10)"
-    elif mean_within < mean_cross * 0.5:
-        verdict = "MOSTLY STATIONARY (within-variant drift << cross-variant variation)"
-    else:
-        verdict = "NON-STATIONARY (within-variant drift comparable to cross-variant variation)"
-
-    return {"rows": rows, "mean_within": mean_within,
-            "max_within": max_within, "mean_cross": mean_cross, "verdict": verdict}
-
-
-# ---------------------------------------------------------------------------
 # Analysis 3: Predicted vs Actual (with k-fold CV when run_index available)
 # ---------------------------------------------------------------------------
+
+def _trace_key_col(classified: pd.DataFrame) -> str:
+    return "trace_id" if "trace_id" in classified.columns else "item_id"
 
 def predicted_vs_actual(classified: pd.DataFrame, items: pd.DataFrame) -> dict:
     """Compare N[0].sum() to actual classified steps per item.
@@ -313,7 +115,7 @@ def predicted_vs_actual(classified: pd.DataFrame, items: pd.DataFrame) -> dict:
     run is treated as an independent trace. Runs leave-one-out CV when N≥3.
     Falls back to self-consistent (circular) prediction for N<3 or single-run data.
     """
-    tkey = trace_key_col(classified)
+    tkey = _trace_key_col(classified)
     has_multi_run = tkey == "trace_id"
     rows = []
 
@@ -649,13 +451,13 @@ if __name__ == "__main__":
         print(f"    {v}: {len(g)}")
 
     print("\nAnalysis 1: Second-order Markov test...")
-    a1 = second_order_test(classified)
+    a1 = run_second_order_test(classified, STATES)
     print(f"  Pairs tested: {a1['n_pairs_tested']}, mean KL: {a1['mean_kl']:.4f} bits")
     print(f"  LR: {a1['lr_stat']:.2f}, df: {a1['lr_df']}, p: {a1['lr_pvalue']:.4f}")
     print(f"  Verdict: {a1['verdict']}")
 
     print("\nAnalysis 2: Stationarity test...")
-    a2 = stationarity_test(classified)
+    a2 = run_stationarity_test(classified, STATES)
     print(f"  Mean within-variant Frobenius drift: {a2['mean_within']:.4f}")
     print(f"  Cross-variant baseline: {a2['mean_cross']:.4f}")
     print(f"  Verdict: {a2['verdict']}")
