@@ -405,14 +405,44 @@ def load_intent_action_pairs():
                     for i, tb in enumerate(tbs):
                         topic = classify_block(tb)
                         first_tool_idx = int(i * n_u / n_t)
-                        tool = tus[first_tool_idx]["name"]
+                        tu = tus[first_tool_idx]
+                        tool_name = tu["name"]
+                        if tool_name == "Bash":
+                            cmd = tu.get("input", {}).get("command", "")
+                            tool = classify_bash_command(cmd)
+                        else:
+                            tool = tool_name
                         rows.append({"variant": variant, "topic": topic, "tool": tool})
     return pd.DataFrame(rows)
 
 
-POLICY_TOOLS = ["Bash", "Read", "Write", "Edit", "Glob", "Agent"]
+POLICY_TOOLS = ["Bash:EXPLORE", "Bash:BUILD", "Bash:VERIFY", "Bash:JAR",
+                "Read", "Write", "Edit", "Glob", "Agent", "Bash:other"]
+POLICY_TOOLS_SHORT = {
+    "Bash:EXPLORE": "Bash\n(explore)", "Bash:BUILD": "Bash\n(build)",
+    "Bash:VERIFY": "Bash\n(verify)", "Bash:JAR": "Bash\n(jar)",
+    "Read": "Read", "Write": "Write", "Edit": "Edit",
+    "Glob": "Glob", "Agent": "Agent", "Bash:other": "Bash\n(other)",
+}
 POLICY_TOPIC_ORDER = ["EXPLORE", "FIX", "VERIFY", "BUILD", "WRITE", "JAR", "META"]
 VARIANT_HAS_SKILLS = {"hardened+skills", "hardened+skills+sae", "hardened+skills+sae+forge"}
+
+
+def classify_bash_command(cmd: str) -> str:
+    """Sub-classify a Bash command into a semantic action label."""
+    c = cmd.lower()
+    if any(x in c for x in ("jar tf", "jar -tf", "jar --list", "javap", "jar xf")):
+        return "Bash:JAR"
+    if any(x in c for x in (
+        "mvnw", "mvn ", "./mvnw", "gradlew", "gradle ",
+        "test-compile", "jacoco:report", "mvn test", "mvn verify",
+    )):
+        return "Bash:BUILD"
+    if any(x in c for x in ("jacoco", "coverage", "surefire-reports")):
+        return "Bash:VERIFY"
+    if any(x in c for x in ("find ", "grep ", "ls ", "cat ", "tree ", "head ", "tail ", "wc ")):
+        return "Bash:EXPLORE"
+    return "Bash:other"
 
 
 def chart_policy_table(df_pairs: pd.DataFrame):
@@ -451,7 +481,7 @@ def chart_policy_table(df_pairs: pd.DataFrame):
     im = ax1.imshow(mat_vals, cmap="Blues", aspect="auto", vmin=0, vmax=1)
 
     ax1.set_xticks(range(len(POLICY_TOOLS)))
-    ax1.set_xticklabels(POLICY_TOOLS, fontsize=9)
+    ax1.set_xticklabels([POLICY_TOOLS_SHORT.get(t, t) for t in POLICY_TOOLS], fontsize=8)
     ax1.set_yticks(range(len(POLICY_TOPIC_ORDER)))
     topics_with_n = [f"{t}\n(n={topic_n.get(t, 0)})" for t in POLICY_TOPIC_ORDER]
     ax1.set_yticklabels(topics_with_n, fontsize=8.5)
@@ -532,13 +562,16 @@ def chart_explore_skills_split(df_pairs: pd.DataFrame):
         group_tools[g] = {tool: cnt.get(tool, 0) / total for tool in POLICY_TOOLS}
 
     tool_colors = {
-        "Bash": "#fd8d3c", "Read": "#4292c6", "Write": "#74c476",
+        "Bash:EXPLORE": "#fd8d3c", "Bash:BUILD": "#cc4e00", "Bash:VERIFY": "#ff9900",
+        "Bash:JAR": "#8c5e00", "Bash:other": "#e0c090",
+        "Read": "#4292c6", "Write": "#74c476",
         "Edit": "#756bb1", "Glob": "#8c6d31", "Agent": "#969696",
     }
 
     for tool in POLICY_TOOLS:
         vals = [group_tools[g].get(tool, 0) * 100 for g in groups]
-        ax.bar(x, vals, w, bottom=bottoms, color=tool_colors[tool], label=tool)
+        label = POLICY_TOOLS_SHORT.get(tool, tool).replace("\n", " ")
+        ax.bar(x, vals, w, bottom=bottoms, color=tool_colors.get(tool, "#cccccc"), label=label)
         for xi, (v, b) in enumerate(zip(vals, bottoms)):
             if v > 5:
                 ax.text(xi, b + v / 2, f"{v:.0f}%",
