@@ -62,10 +62,11 @@ if DISCOVERY_MODE:
 # These are the labels your classify_state() function returns.
 # Common starting point — adjust after inspecting discovery-mode output.
 STATES = [
-    "EXPLORE",      # reading source files, directories, dep investigation
+    "EXPLORE",      # structured file access: Read tool, Glob, Agent subagent
+    "SHELL",        # shell-based exploration: find, ls, grep, cat, tree — searching, not targeted
     "READ_KB",      # reading knowledge base files (knowledge/ dir)
     "READ_SKILL",   # invoking a SkillsJars skill (Skill tool call)
-    "JAR_INSPECT",  # jar tf — agent spelunking .m2 to find classes/imports
+    "JAR_INSPECT",  # jar tf/xf, javap — agent spelunking .m2 to find imports
     "WRITE",        # writing test files (first time)
     "BUILD",        # ./mvnw clean test jacoco:report — actual test execution
     "VERIFY",       # reading back JaCoCo report to confirm coverage %
@@ -74,6 +75,7 @@ STATES = [
 
 COLORS = {
     "EXPLORE":     "#4C72B0",
+    "SHELL":       "#9ecae1",   # lighter blue — related to EXPLORE but shell-based
     "READ_KB":     "#55A868",
     "READ_SKILL":  "#29a8ab",
     "JAR_INSPECT": "#937860",
@@ -99,9 +101,10 @@ VARIANT_ORDER = [
 #   the agent never needs to inspect jars.
 # PRODUCTIVE: forward-progress — writing and running tests for the first time
 CLUSTER_DEFINITIONS = {
-    "FIX_LOOP":        ["FIX", "BUILD"],   # rework cycle: edit → rebuild
-    "PRODUCTIVE":      ["WRITE"],          # forward progress: writing tests
-    "JAR_INSPECT":     ["JAR_INSPECT"],    # framework friction: addressable by KB
+    "FIX_LOOP":        ["FIX", "BUILD"],              # rework cycle: edit → rebuild
+    "PRODUCTIVE":      ["WRITE"],                     # forward progress: writing tests
+    "JAR_INSPECT":     ["JAR_INSPECT"],               # framework friction: addressable by KB
+    "SEARCH":          ["SHELL", "JAR_INSPECT"],      # all shell-based searching (efficiency tax)
 }
 
 DELTA_PAIRS = [
@@ -179,8 +182,13 @@ def classify_state(tool_name: str, target: str) -> str | None:
     # Bash commands — distinguish by what the command is actually doing
     if tool_lower == "bash":
         # JAR inspection: agent reading .m2 jars to discover classes/imports
+        # Catches: jar tf (list), jar xf (extract), javap (decompile)
         # Signal: agent doesn't know test framework imports — addressable by KB
-        if "jar tf" in target_lower or "jar -tf" in target_lower or "jar --list" in target_lower:
+        if any(x in target_lower for x in (
+            "jar tf", "jar -tf", "jar --list",
+            "jar xf", "jar -xf",
+            "javap ",
+        )):
             return "JAR_INSPECT"
 
         # Actual test execution: the real BUILD state
@@ -198,19 +206,20 @@ def classify_state(tool_name: str, target: str) -> str | None:
         )):
             return "VERIFY"
 
-        # Filesystem and dependency exploration: not a real build
+        # Shell-based exploration: agent searching rather than reading directly
+        # Distinct from EXPLORE (Read tool) — agent doesn't know exactly where to look
         if any(x in target_lower for x in (
-            "ls ", "find ", "tree ", "cat ", "echo ", "pwd",
-            "dependency:tree", "dep:tree", "find /home/mark/.m2",
+            "ls ", "find ", "tree ", "cat ", "head ", "tail ", "wc ",
+            "grep ", "echo ", "pwd", "dependency:tree", "dep:tree",
         )):
-            return "EXPLORE"
+            return "SHELL"
 
         # Scaffolding (mkdir, cp, mv) — exclude: not semantically interesting
         if any(x in target_lower for x in ("mkdir", "cp ", "mv ", "chmod", "touch ")):
             return None
 
-        # Default bash: treat as EXPLORE (grep, sed, awk, etc.)
-        return "EXPLORE"
+        # Default bash (sed, awk, curl, etc.) — treat as shell exploration
+        return "SHELL"
 
     return "EXPLORE"  # default
 
