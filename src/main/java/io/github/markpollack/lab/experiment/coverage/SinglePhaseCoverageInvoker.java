@@ -1,4 +1,4 @@
-package ai.tuvium.coverage;
+package io.github.markpollack.lab.experiment.coverage;
 
 import java.nio.file.Path;
 import java.util.List;
@@ -17,7 +17,7 @@ import org.springaicommunity.judge.coverage.JaCoCoReportParser.CoverageMetrics;
 
 /**
  * Single-phase agent invoker — one AgentClient call per dataset item.
- * Used for variants 1–5 (simple, hardened, +kb, +skills, +skills+sae).
+ * Used for variants 1–5 (simple, hardened, +kb, +skills, +skills+preanalysis).
  */
 public class SinglePhaseCoverageInvoker extends AbstractCoverageAgentInvoker {
 

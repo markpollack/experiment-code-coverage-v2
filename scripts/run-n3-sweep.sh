@@ -12,7 +12,7 @@
 #   logs/runs/current -> <latest-run-log> — symlink for easy tail -f
 #
 # Usage:
-#   cd /home/mark/tuvium/projects/tuvium-code-coverage-v2
+#   cd /home/mark/projects/code-coverage-v2
 #   bash scripts/run-n3-sweep.sh
 #   bash scripts/run-n3-sweep.sh --dry-run           # print plan, no execution
 #   bash scripts/run-n3-sweep.sh --start-at simple   # resume sweep 1 from 'simple'

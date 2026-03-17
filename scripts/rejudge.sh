@@ -17,5 +17,5 @@ cd "$(dirname "$0")/.."
 unset ANTHROPIC_API_KEY
 
 exec ./mvnw exec:java \
-  -Dexec.mainClass=ai.tuvium.coverage.RejudgeApp \
+  -Dexec.mainClass=io.github.markpollack.lab.experiment.coverage.RejudgeApp \
   "-Dexec.args=$*"

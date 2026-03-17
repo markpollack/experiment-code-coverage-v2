@@ -1,10 +1,10 @@
-package ai.tuvium.coverage.judge;
+package io.github.markpollack.lab.experiment.coverage.judge;
 
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 
-import ai.tuvium.coverage.VariantSpec;
+import io.github.markpollack.lab.experiment.coverage.VariantSpec;
 import org.springaicommunity.judge.Judge;
 import org.springaicommunity.judge.jury.CascadedJury;
 import org.springaicommunity.judge.jury.ConsensusStrategy;

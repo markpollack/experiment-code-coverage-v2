@@ -16,7 +16,7 @@ Bootstrap procedure (do this BEFORE finalizing the taxonomy):
   4. Write classify_state() based on real data, then re-run normally
 
 Requires markov-agent-analysis library:
-    uv pip install -e ~/tuvium/projects/markov-agent-analysis/[all]
+    uv pip install markov-agent-analysis
 
 Run:
     python scripts/make_markov_analysis.py
@@ -115,9 +115,9 @@ NOTE_MAP = {
     "simple":                  "Minimal prompt — baseline",
     "hardened":                "Hardened prompt + stopping condition",
     "hardened+kb":             "Hardened + flat KB injection",
-    "hardened+sae":            "Hardened + SAE pre-analysis",
+    "hardened+sae":            "Hardened + pre-analysis script",
     "hardened+skills":         "Hardened + SkillsJars (structured KB)",
-    "hardened+skills+sae":     "Hardened + skills + SAE pre-analysis",
+    "hardened+skills+sae":     "Hardened + skills + pre-analysis script",
     "hardened+skills+sae+forge": "Two-phase: explore → act",
 }
 

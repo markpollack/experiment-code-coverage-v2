@@ -1,4 +1,4 @@
-package ai.tuvium.coverage;
+package io.github.markpollack.lab.experiment.coverage;
 
 import java.io.IOException;
 import java.nio.file.Files;
@@ -10,8 +10,8 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 
-import ai.tuvium.coverage.dataset.SlugFilteringDatasetManager;
-import ai.tuvium.coverage.judge.JuryFactory;
+import io.github.markpollack.lab.experiment.coverage.dataset.SlugFilteringDatasetManager;
+import io.github.markpollack.lab.experiment.coverage.judge.JuryFactory;
 import ai.tuvium.experiment.agent.AgentInvoker;
 import ai.tuvium.experiment.agent.InvocationResult;
 import ai.tuvium.experiment.dataset.FileSystemDatasetManager;

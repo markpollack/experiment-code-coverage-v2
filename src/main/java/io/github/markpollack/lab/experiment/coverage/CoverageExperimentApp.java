@@ -1,4 +1,4 @@
-package ai.tuvium.coverage;
+package io.github.markpollack.lab.experiment.coverage;
 
 import java.io.IOException;
 import java.io.InputStream;
@@ -13,9 +13,9 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 
-import ai.tuvium.coverage.dataset.SlugFilteringDatasetManager;
-import ai.tuvium.coverage.judge.JuryFactory;
-import ai.tuvium.coverage.judge.TestQualityJudge;
+import io.github.markpollack.lab.experiment.coverage.dataset.SlugFilteringDatasetManager;
+import io.github.markpollack.lab.experiment.coverage.judge.JuryFactory;
+import io.github.markpollack.lab.experiment.coverage.judge.TestQualityJudge;
 import ai.tuvium.experiment.dataset.DatasetManager;
 import ai.tuvium.experiment.dataset.FileSystemDatasetManager;
 import ai.tuvium.experiment.result.ExperimentResult;

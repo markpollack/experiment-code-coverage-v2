@@ -1,4 +1,4 @@
-package ai.tuvium.coverage.dataset;
+package io.github.markpollack.lab.experiment.coverage.dataset;
 
 import java.nio.file.Path;
 import java.util.List;

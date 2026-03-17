@@ -1,0 +1,486 @@
+\documentclass[11pt,a4paper]{article}
+
+\usepackage[utf8]{inputenc}
+\usepackage[T1]{fontenc}
+\usepackage{lmodern}
+\usepackage[margin=1.1in]{geometry}
+\usepackage{graphicx}
+\usepackage{booktabs}
+\usepackage{float}
+\usepackage{xcolor}
+\usepackage{hyperref}
+\usepackage{enumitem}
+\usepackage{amsmath}
+\usepackage{mdframed}
+\usepackage{subcaption}
+
+\hypersetup{colorlinks=true, linkcolor=blue!60!black, urlcolor=blue!60!black}
+
+\definecolor{tuvblue}{RGB}{44,90,160}
+\definecolor{lightblue}{RGB}{220,235,255}
+\definecolor{lightgreen}{RGB}{220,245,220}
+\definecolor{lightyellow}{RGB}{255,250,220}
+\definecolor{lightred}{RGB}{255,230,230}
+\definecolor{lightgray}{RGB}{245,245,245}
+
+\newmdenv[backgroundcolor=lightblue,linecolor=tuvblue,linewidth=1.5pt,
+  innerleftmargin=12pt,innerrightmargin=12pt,
+  innertopmargin=8pt,innerbottommargin=8pt]{keybox}
+\newmdenv[backgroundcolor=lightgreen,linecolor=green!40!black,linewidth=1pt,
+  innerleftmargin=12pt,innerrightmargin=12pt,
+  innertopmargin=8pt,innerbottommargin=8pt]{findingbox}
+\newmdenv[backgroundcolor=lightyellow,linecolor=orange!60!black,linewidth=1pt,
+  innerleftmargin=12pt,innerrightmargin=12pt,
+  innertopmargin=8pt,innerbottommargin=8pt]{notebox}
+\newmdenv[backgroundcolor=lightred,linecolor=red!40!black,linewidth=1pt,
+  innerleftmargin=12pt,innerrightmargin=12pt,
+  innertopmargin=8pt,innerbottommargin=8pt]{warningbox}
+\newmdenv[backgroundcolor=lightgray,linecolor=gray!50,linewidth=1pt,
+  innerleftmargin=12pt,innerrightmargin=12pt,
+  innertopmargin=8pt,innerbottommargin=8pt]{codebox}
+
+\title{\textbf{Agent Efficiency Experiment: Results Report}\\[0.4em]
+\large Code Coverage on Spring PetClinic\\
+7 Variants $\times$ 3 Runs --- What the Data Shows\\[0.6em]
+\normalsize Tuvium Code Coverage Experiment v2}
+\author{Tuvium Research}
+\date{March 2026}
+
+\begin{document}
+\maketitle
+\tableofcontents
+\newpage
+
+%% ============================================================
+\section{What We Ran}
+
+\subsection*{The task}
+
+Write JUnit 5 tests for Spring PetClinic from scratch to maximize code coverage.
+The agent starts with zero tests.
+It finishes when it decides the coverage is satisfactory --- or when it times out.
+
+Spring PetClinic is the reference Spring Boot application: well-documented,
+heavily covered in online tutorials, present in training data for all major language models.
+This matters for interpreting the results (see Section~\ref{sec:limits}).
+
+\subsection*{The setup}
+
+\begin{itemize}
+  \item \textbf{Model}: Claude Sonnet 4.6
+  \item \textbf{Task}: write tests for spring-petclinic (zero initial coverage)
+  \item \textbf{Coverage target}: instruction coverage via JaCoCo
+  \item \textbf{Build}: \texttt{./mvnw clean test jacoco:report}
+  \item \textbf{Runs}: 20 sessions total (N=3 per variant, except \texttt{simple}: N=2)
+  \item \textbf{Tracking}: every tool call logged in order via \texttt{agent-journal}
+\end{itemize}
+
+\subsection*{The seven variants}
+
+Each variant gives the agent a different level of structured support.
+They build additively from a minimal prompt up to a two-phase exploration+action structure.
+
+\begin{table}[H]
+\centering
+\renewcommand{\arraystretch}{1.2}
+\begin{tabular}{@{}l p{9cm}@{}}
+\toprule
+\textbf{Variant} & \textbf{What the agent has} \\
+\midrule
+\texttt{simple}
+  & Minimal prompt. No stopping condition. No knowledge.
+    The bare minimum needed to run the task. \\
+\texttt{hardened}
+  & Structured prompt with explicit stopping condition and output format.
+    Still no domain knowledge. \\
+\texttt{hardened+kb}
+  & Hardened prompt plus a flat knowledge base: Spring test annotation imports,
+    JaCoCo configuration, petclinic package structure. \\
+\texttt{hardened+sae}
+  & Hardened prompt plus Structured Analysis and Exploration (pre-analysis):
+    a mandatory pre-analysis pass before writing any tests. \\
+\texttt{hardened+skills}
+  & Hardened prompt plus SkillsJars: structured, modular knowledge packages
+    delivered as callable skills. \\
+\texttt{hardened+skills+sae}
+  & Skills plus pre-analysis together: structured knowledge delivery and
+    mandatory pre-analysis. \\
+\texttt{hardened+skills+sae+forge}
+  & Two-phase design: a deep exploration phase followed by a sustained act phase.
+    The most structured variant. \\
+\bottomrule
+\end{tabular}
+\caption{Seven variants tested, ordered from least to most structured.}
+\end{table}
+
+\subsection*{What we measured}
+
+Every tool call was classified into one of 8 semantic states
+(EXPLORE, READ\_KB, READ\_SKILL, JAR\_INSPECT, WRITE, BUILD, VERIFY, FIX).
+See the companion document \emph{Reading Agent Behavior} for the full taxonomy.
+
+At the end of each run, a separate judge (T3 TestQualityJudge) evaluated
+the produced test suite on 6 criteria: test slice selection, assertion quality,
+error coverage, domain patterns, coverage target selection, and version-aware patterns.
+Score range: 0.0--1.0. Runs were not scored by the same process that produced the tests
+(no circular grading).
+
+%% ============================================================
+\section{The Stark Contrast}
+
+Before the summary tables: two real runs, same model, same task.
+
+\begin{center}
+\renewcommand{\arraystretch}{1.3}
+\begin{tabular}{@{}lcccc@{}}
+\toprule
+& \textbf{Total calls} & \textbf{BUILD calls} & \textbf{Cost} & \textbf{Duration} \\
+\midrule
+\textbf{hardened+skills+sae} (run 17) & 69 & 11 & \$3.49 & 26 min \\
+\textbf{hardened+skills+sae+forge} (run 14) & 97 & \textbf{23} & \textbf{\$5.67} & 43 min \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+Run 17 built once, verified, done.
+Run 14 built 23 times --- six consecutive FIX$\to$BUILD cycles in the middle of the run.
+The 63\% cost difference comes entirely from that spiral.
+
+Both runs produced passing tests.
+Both scored above 0.85 on the T3 judge.
+The spiral did not improve the outcome.
+
+\begin{figure}[H]
+\centering
+\includegraphics[width=\textwidth]{../figures/cost-steps-comparison.png}
+\caption{Mean cost (left) and mean step count (right) per variant across all runs.
+         The forge variant (red bar) has the highest mean cost and the highest variance ---
+         it can be the cleanest or the most expensive run in the dataset depending
+         on whether it hits a spiral. Error bars = standard deviation across N=3 runs.}
+\end{figure}
+
+%% ============================================================
+\section{Two-Axis Results}
+\label{sec:results}
+
+Efficiency and quality are independent axes.
+A variant that saves 30\% of steps but degrades quality isn't actually saving you money
+on the goal of \emph{producing good tests}.
+
+\begin{table}[H]
+\centering
+\renewcommand{\arraystretch}{1.3}
+\begin{tabular}{@{}lrrrrrr@{}}
+\toprule
+\textbf{Variant} & \textbf{N} & \textbf{Mean steps} & \textbf{$\pm$} &
+  \textbf{Mean cost} & \textbf{T3 quality} & \textbf{$\pm$} \\
+\midrule
+\texttt{hardened+skills+sae}     & 3 &  75.0 & 8.7  & \$3.39 & 0.850 & 0.017 \\
+\texttt{hardened+sae}            & 3 &  80.3 & 12.1 & \$3.41 & 0.789 & 0.035 \\
+\texttt{hardened+kb}             & 3 &  83.3 & 7.4  & \$3.21 & 0.847 & 0.027 \\
+\texttt{hardened+skills+sae+forge} & 3 & 95.0 & 11.1 & \$5.11 & 0.878 & 0.092 \\
+\texttt{hardened+skills}         & 3 & 101.7 & 10.1 & \$3.70 & 0.856 & 0.025 \\
+\texttt{hardened}                & 3 & 103.0 & 17.8 & \$4.08 & 0.850 & 0.017 \\
+\texttt{simple}                  & 2 & 109.5 & 13.4 & \$3.47 & 0.783 & 0.071 \\
+\bottomrule
+\end{tabular}
+\caption{Two-axis comparison: efficiency (steps, cost) and quality (T3 score).
+         Steps = total tool calls per run. T3 quality = mean across N runs $\pm$ std.
+         Sorted by mean steps ascending (most efficient first).}
+\end{table}
+
+\begin{warningbox}
+\textbf{The forge paradox}: \texttt{hardened+skills+sae+forge} ranks 4th on efficiency
+(95 mean steps) but has the highest mean quality (0.878) \emph{and} the highest standard
+deviation (0.092). Its best run (run 15: \$5.80, T3=0.967) and worst run (run 14:
+\$5.67, 23 builds, spiral) are the extremes of the entire dataset.
+High ceiling, high floor risk.
+\end{warningbox}
+
+%% ============================================================
+\section{Four Key Findings}
+
+\begin{findingbox}
+\textbf{Finding 1: Prompt hardening is the biggest quality driver.}
+
+\texttt{simple} $\to$ \texttt{hardened}: $+$0.067 quality points (0.783 $\to$ 0.850),
+$-$6\% steps. This is the largest single quality jump in the table.
+
+All other knowledge and structure variants build on top of a hardened prompt.
+The hardened prompt adds a stopping condition and structured output requirements ---
+no external knowledge, just discipline.
+\emph{Structured prompting beats no structure, regardless of what knowledge you inject.}
+\end{findingbox}
+
+\begin{findingbox}
+\textbf{Finding 2: pre-analysis drives efficiency at a quality cost.}
+
+\texttt{hardened} $\to$ \texttt{hardened+sae}: $-$22\% steps,
+but quality drops to 0.789 --- back near \texttt{simple}'s 0.783.
+
+pre-analysis's mandatory pre-analysis pass front-loads exploration and produces a tighter
+action plan. The agent is more efficient: it writes fewer exploratory tests,
+makes fewer speculative BUILD attempts.
+But the plan can be too tight --- it scopes out edge cases and domain-specific
+behaviors that a less constrained agent would discover during exploration.
+\emph{Efficiency and depth are in tension. pre-analysis resolves it toward efficiency.}
+\end{findingbox}
+
+\begin{findingbox}
+\textbf{Finding 3: Skills compensate for pre-analysis's quality regression.}
+
+\texttt{hardened+skills+sae}: $-$31\% steps vs simple, quality = 0.850 ---
+matching \texttt{hardened} alone, despite being 28 steps shorter.
+
+Skills provide structured domain knowledge: correct test patterns, annotation imports,
+petclinic-specific coverage strategies. With skills, the pre-analysis plan is better-informed ---
+it scopes tasks correctly because it has the right vocabulary to scope with.
+The skill package functions as a quality stabilizer when combined with pre-analysis.
+\emph{This is the strongest variant by the efficiency+quality tradeoff.}
+\end{findingbox}
+
+\begin{findingbox}
+\textbf{Finding 4: KB is a pure efficiency play on known codebases.}
+
+\texttt{hardened+kb}: $-$24\% steps vs \texttt{hardened}, quality = 0.847 (flat,
+$\Delta$ = $-$0.003, within noise).
+
+The knowledge base reduces JAR inspection (10.1\% $\to$ 3\% of steps roughly)
+by answering the import questions the agent would otherwise search for.
+But petclinic is well-known --- the model already knows its domain,
+so KB cannot improve the tests, only reduce friction.
+\emph{On a novel codebase, KB's quality impact should be larger.
+This is the central hypothesis for the Fineract follow-up.}
+\end{findingbox}
+
+%% ============================================================
+\section{The Behavioral Signature: What the Heatmaps Show}
+
+The two-axis table shows what happened. The heatmaps show \emph{why}.
+
+\subsection*{The JAR cluster: knowledge friction}
+
+When the agent doesn't know which Maven jar provides a Spring test annotation,
+it inspects jars in \texttt{\textasciitilde/.m2/repository} until it finds the class.
+This is addressable: a knowledge base entry answering the import question
+eliminates it entirely.
+
+\begin{center}
+\begin{tabular}{@{}lrc@{}}
+\toprule
+\textbf{Variant} & \textbf{JAR\_INSPECT \%} & \textbf{Intervention} \\
+\midrule
+\texttt{simple}            & 7.9\%  & none \\
+\texttt{hardened}          & 11.0\% & prompt only (more thorough, no direction) \\
+\texttt{hardened+kb}       & 10.1\% & flat KB helps but doesn't eliminate \\
+\texttt{hardened+skills}   &  1.0\% & skills answer the import directly \\
+\texttt{hardened+skills+sae} & 7.1\% & pre-analysis reduces JAR by rerouting (different mechanism) \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+\begin{notebox}
+\textbf{The hardened paradox}: adding a hardened prompt \emph{increases} JAR inspection
+from 7.9\% to 11.0\%. The hardened prompt makes the agent more thorough about finding
+correct imports --- without providing the answer. Thoroughness without direction =
+maximum searching.
+\end{notebox}
+
+\subsection*{The FIX/BUILD loop: rework}
+
+When tests fail to compile or run, the agent edits (FIX) and rebuilds (BUILD).
+One or two FIX$\to$BUILD cycles is normal. Six consecutive cycles is a spiral.
+
+The heatmap for \texttt{hardened+skills+sae+forge} shows mutual high probability
+between the BUILD and FIX rows: $P(\text{BUILD}\to\text{FIX})$ and
+$P(\text{FIX}\to\text{BUILD})$ both elevated. Compare to \texttt{hardened+skills+sae}:
+the FIX row is dimmer, fewer cycles, cleaner exit.
+
+The forge variant's two-phase design (deep explore, then sustained act) produces
+more ambitious initial test writing. When that writing hits a compilation problem,
+the agent retries aggressively. The recovery is expensive precisely because the initial
+attempt was so thorough.
+
+\begin{figure}[H]
+\centering
+\begin{minipage}[t]{0.48\textwidth}
+  \includegraphics[width=\textwidth]{../figures/heatmap-hardened-skills-sae-forge.png}
+  \caption*{\textbf{Spiral variant (forge)}: BUILD$\to$FIX and FIX$\to$BUILD
+            cells are orange/red. The agent cycles. Worst run: 23 builds, \$5.67.}
+\end{minipage}\hfill
+\begin{minipage}[t]{0.48\textwidth}
+  \includegraphics[width=\textwidth]{../figures/heatmap-hardened-skills-sae.png}
+  \caption*{\textbf{Clean variant}: FIX$\to$BUILD cell is dimmer.
+            Fewer cycles. Best run: 11 builds, \$3.49.}
+\end{minipage}
+\caption{The rework loop in the heatmap. Bright mutual probability between BUILD
+         and FIX rows means the agent is cycling. The forge variant's two-phase structure
+         produces this pattern when initial test writing fails.}
+\end{figure}
+
+%% ============================================================
+\section{Step-Count Prediction: Does the Math Work?}
+\label{sec:prediction}
+
+The Markov framework is only useful if it predicts accurately.
+We validated using leave-one-out cross-validation:
+fit the transition matrix $P$ on $N-1$ runs per variant,
+predict the held-out run's step count from the fundamental matrix $N = (I-Q)^{-1}$.
+
+\begin{findingbox}
+\textbf{Cross-validation result: zero mean bias, MAE of 8--20 steps.}
+
+\begin{center}
+\begin{tabular}{@{}lrrl@{}}
+\toprule
+\textbf{Variant} & \textbf{Actual/run} & \textbf{CV Predicted} & \textbf{MAE} \\
+\midrule
+\texttt{hardened}            & 103.0 & 103.0 & 19.7 \\
+\texttt{hardened+kb}         &  83.3 &  83.3 &  8.3 \\
+\texttt{hardened+sae}        &  80.3 &  80.3 & 13.3 \\
+\texttt{hardened+skills}     & 101.7 & 101.7 & 11.0 \\
+\texttt{hardened+skills+sae} &  75.0 &  75.0 & 10.3 \\
+\bottomrule
+\end{tabular}
+\end{center}
+\end{findingbox}
+
+The predicted mean matches actual mean for all five variants with N=3 data.
+The MAE of 8--20 steps represents run-to-run variance, not model error ---
+the model captures the average, not the individual spiral.
+
+\textbf{Why the prediction is only approximately Markov}:
+A formal second-order test found mean KL divergence of 0.49 bits across 27
+(previous, current) state pairs --- first-order Markov is formally rejected ($p < 0.001$).
+The violation is concentrated in recovery transitions:
+FIX$\to$EXPLORE has 2.10 bits of second-order information.
+Knowing whether an agent arrived at FIX from its first build attempt or its
+sixth dramatically changes what it explores next.
+
+But over a 100-step trajectory, recovery transitions happen a handful of times
+and the errors cancel. Hence: zero mean bias in cross-validation despite
+technically non-Markov data.
+
+%% ============================================================
+\section{What This Experiment Cannot Show}
+\label{sec:limits}
+
+\begin{warningbox}
+\textbf{The petclinic ceiling.}
+
+Spring PetClinic is one of the most documented Spring Boot applications in existence.
+All variants reach approximately 92--94\% instruction coverage.
+Coverage is not a discriminator here --- the model knows this domain.
+
+Consequences:
+\begin{itemize}
+  \item Knowledge injection (KB, skills) improves \emph{efficiency} (fewer steps) but
+        cannot improve \emph{outcome quality} beyond the model's existing knowledge of petclinic.
+  \item The T3 quality scores are meaningful --- they reflect how well-structured
+        the tests are --- but they cannot reflect domain-knowledge improvement
+        on a domain the model already knows.
+  \item To prove that knowledge injection improves \emph{outcomes} on novel domains,
+        we need a domain the model does not know well.
+\end{itemize}
+\end{warningbox}
+
+\textbf{What petclinic does prove}:
+
+\begin{itemize}
+  \item Prompt hardening alone improves quality and reduces steps.
+    This holds even when the model knows the domain perfectly.
+  \item Structured execution (pre-analysis) reliably reduces steps on any codebase ---
+    the pre-analysis benefit is architectural, not domain-specific.
+  \item The JAR cluster is addressable via knowledge injection.
+    Skills reduce it from 11\% to 1\% regardless of domain familiarity.
+  \item The FIX/BUILD spiral risk is variant-specific.
+    Forge has it; \texttt{hardened+skills+sae} does not.
+\end{itemize}
+
+\textbf{What petclinic is}: the negative control.
+It establishes the lower bound on knowledge injection's quality effect
+(zero improvement on known domains) and the baseline behavioral signatures.
+
+%% ============================================================
+\section{What Comes Next: Fineract}
+\label{sec:fineract}
+
+The next experiment targets \textbf{Apache Fineract} (banking platform, Spring Boot 3.2.2,
+Gradle 8.x). The \texttt{fineract-loan} module covers a bounded loan lifecycle domain ---
+disbursement, repayment schedules, interest calculations, charge types.
+
+This domain is not well-represented in model training data.
+The model has seen petclinic; it has not seen Fineract's loan allocation rules.
+
+\subsection*{What Fineract tests}
+
+The central hypothesis: \textbf{on a novel domain, knowledge injection improves
+test quality, not just test efficiency.}
+
+The KB will contain 4 domain files:
+\begin{itemize}
+  \item \texttt{loan-lifecycle.md} --- disbursement $\to$ repayment $\to$ closure states
+  \item \texttt{test-patterns.md} --- Spring Boot 3 test patterns, JPA, H2 in-memory
+  \item \texttt{loan-charge-types.md} --- fee, penalty, and upfront charge classification
+  \item \texttt{assertion-guide.md} --- how to write assertions for financial calculations
+\end{itemize}
+
+Fineract already has tests at roughly 40--65\% line coverage (module-dependent).
+The task is to improve from that baseline, not write from scratch.
+This is harder: the agent must understand what tests already exist
+and write tests that extend coverage without duplicating them.
+
+\subsection*{The experimental matrix}
+
+6 variants $\times$ 3 runs = 18 sessions:
+\begin{enumerate}
+  \item \texttt{simple} --- baseline
+  \item \texttt{hardened} --- structured prompt
+  \item \texttt{hardened+kb} --- flat KB with loan domain files
+  \item \texttt{hardened+skills} --- SkillsJars with same content
+  \item \texttt{hardened+skills+sae} --- skills + pre-analysis
+  \item \texttt{hardened+skills+sae+forge} --- two-phase
+\end{enumerate}
+
+\textbf{Success criterion}: at least one KB variant ($+$kb or $+$skills)
+achieves $\geq$10\% T2-improvement (coverage gain above simple baseline).
+If yes: knowledge injection proves outcome improvement on novel domains.
+If no: efficiency is the only measurable benefit, and the thesis requires refinement.
+
+%% ============================================================
+\section{The Short Summary}
+
+\begin{keybox}
+\textbf{What the v2 experiment shows:}
+
+\begin{enumerate}[leftmargin=1.5em,itemsep=4pt]
+  \item \textbf{Prompt hardening is the single biggest quality driver.}
+    $+$0.067 quality, $-$6\% steps. Free gain from structural discipline.
+
+  \item \textbf{pre-analysis is efficient but shallow.}
+    $-$22\% steps, quality back near baseline.
+    Tight plans miss edge cases.
+
+  \item \textbf{Skills fix pre-analysis's quality regression.}
+    \texttt{hardened+skills+sae}: $-$31\% steps, quality matches \texttt{hardened}.
+    Best tradeoff in the experiment.
+
+  \item \textbf{KB and skills reduce JAR friction but not quality on known codebases.}
+    On petclinic: efficiency gain, quality flat.
+    On novel domains: untested.
+
+  \item \textbf{Forge is high variance.}
+    Best quality ceiling, worst spiral risk.
+    Its two-phase design amplifies both success and failure.
+
+  \item \textbf{The Markov model predicts step counts accurately.}
+    Zero mean bias in cross-validation despite formal rejection of first-order.
+    Recovery transitions are non-Markov; averages are robust.
+\end{enumerate}
+
+\vspace{6pt}
+\textbf{What comes next}: Apache Fineract --- a novel banking domain ---
+to test whether the quality claim holds beyond a domain the model already knows.
+\end{keybox}
+
+\end{document}

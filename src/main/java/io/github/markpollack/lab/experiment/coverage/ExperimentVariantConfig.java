@@ -1,4 +1,4 @@
-package ai.tuvium.coverage;
+package io.github.markpollack.lab.experiment.coverage;
 
 import java.util.List;
 

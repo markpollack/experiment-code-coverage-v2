@@ -261,7 +261,7 @@ simple                  & 7.9\%  & Baseline, hits some import gaps \\
 hardened                & 11.0\% & Thorough without direction: maximum search \\
 hardened+kb             & 10.1\% & KB reduces gaps but doesn't eliminate them \\
 hardened+skills         & 1.0\%  & Skills provides the answer: no search needed \\
-hardened+skills+sae     & 7.1\%  & SAE trades some JAR reduction for step efficiency \\
+hardened+skills+sae     & 7.1\%  & pre-analysis trades some JAR reduction for step efficiency \\
 \bottomrule
 \end{tabular}
 \end{center}
@@ -330,7 +330,7 @@ EXPLORE $\to$ WRITE $\to$ BUILD $\to$ VERIFY.
 Forward progress: understand the task, write tests, they pass, check coverage, done.
 
 \textbf{What changes it}:
-Structured execution (SAE) front-loads a deep exploration phase.
+Structured execution (pre-analysis) front-loads a deep exploration phase.
 The agent arrives at WRITE already knowing what to write.
 Each WRITE step is more targeted.
 Fewer FIX/BUILD loops follow.
@@ -769,13 +769,13 @@ hardened+skills+sae+forge & 94.3 & $-$14\% & 0.878 & 0.075 \\
     simple $\to$ hardened: $+$0.067 quality. The largest single jump.
     All knowledge variants build on top of this.
 
-  \item \textbf{SAE drives efficiency at a quality cost.}
+  \item \textbf{pre-analysis drives efficiency at a quality cost.}
     hardened+sae: $-$27\% steps, but quality drops to 0.789 (back near simple's 0.783).
-    SAE hurries the agent through the task --- sometimes at the cost of test depth.
+    pre-analysis hurries the agent through the task --- sometimes at the cost of test depth.
 
-  \item \textbf{Skills compensate for SAE's quality regression.}
+  \item \textbf{Skills compensate for pre-analysis's quality regression.}
     hardened+skills+sae: $-$31\% steps AND 0.850 quality (equal to hardened alone).
-    Skills acts as a quality stabilizer when SAE is present.
+    Skills acts as a quality stabilizer when pre-analysis is present.
 
   \item \textbf{KB is a pure efficiency play on known codebases.}
     hardened+kb: $-$25\% steps, 0.847 quality (indistinguishable from hardened).
@@ -808,7 +808,7 @@ This means:
 
 ``Petclinic is the negative control --- it proves the boundary condition.''
 
-Structured execution (SAE) always helps, even when the model knows the domain.
+Structured execution (pre-analysis) always helps, even when the model knows the domain.
 Knowledge injection helps efficiency even on known codebases.
 The bigger claim --- that knowledge improves outcomes on novel domains ---
 requires the next experiment.

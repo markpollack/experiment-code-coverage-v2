@@ -1,4 +1,4 @@
-package ai.tuvium.coverage.judge;
+package io.github.markpollack.lab.experiment.coverage.judge;
 
 import java.io.IOException;
 import java.nio.file.Files;

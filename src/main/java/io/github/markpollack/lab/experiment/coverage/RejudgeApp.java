@@ -1,4 +1,4 @@
-package ai.tuvium.coverage;
+package io.github.markpollack.lab.experiment.coverage;
 
 import java.io.IOException;
 import java.io.UncheckedIOException;
@@ -16,7 +16,7 @@ import java.util.Set;
 import java.util.TreeSet;
 import java.util.stream.Collectors;
 
-import ai.tuvium.coverage.judge.TestQualityJudge;
+import io.github.markpollack.lab.experiment.coverage.judge.TestQualityJudge;
 import ai.tuvium.experiment.scoring.VerdictExtractor;
 import com.fasterxml.jackson.annotation.JsonSubTypes;
 import com.fasterxml.jackson.annotation.JsonTypeInfo;

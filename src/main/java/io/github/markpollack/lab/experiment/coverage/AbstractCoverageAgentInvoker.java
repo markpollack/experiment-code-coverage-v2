@@ -1,4 +1,4 @@
-package ai.tuvium.coverage;
+package io.github.markpollack.lab.experiment.coverage;
 
 import java.io.IOException;
 import java.io.UncheckedIOException;
@@ -72,7 +72,7 @@ public abstract class AbstractCoverageAgentInvoker implements AgentInvoker {
 					context.metadata());
 		}
 
-		// 1b. Generate SAE project analysis report
+		// 1b. Generate pre-analysis report (ProjectAnalyzer — regex-based structural scan)
 		ProjectAnalyzer.analyze(workspace);
 
 		// 2. Ensure JaCoCo plugin

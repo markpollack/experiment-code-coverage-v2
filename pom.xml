@@ -4,10 +4,10 @@
          xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
     <modelVersion>4.0.0</modelVersion>
 
-    <groupId>ai.tuvium</groupId>
-    <artifactId>tuvium-code-coverage-v2</artifactId>
+    <groupId>io.github.markpollack</groupId>
+    <artifactId>code-coverage-v2</artifactId>
     <version>0.1.0-SNAPSHOT</version>
-    <name>tuvium-code-coverage-v2</name>
+    <name>code-coverage-v2</name>
     <description>Skills vs KB experiment: does agent-structured knowledge packaging outperform flat KB injection for Spring test quality?</description>
 
     <properties>
@@ -16,7 +16,7 @@
         <maven.compiler.target>${java.version}</maven.compiler.target>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
 
-        <!-- Dependency versions — keep in sync with tuvium-experiment-driver -->
+        <!-- Dependency versions — keep in sync with experiment-driver -->
         <experiment-core.version>0.1.0-SNAPSHOT</experiment-core.version>
         <agent-judge.version>0.9.1-SNAPSHOT</agent-judge.version>
         <agent-client.version>0.10.0-SNAPSHOT</agent-client.version>
@@ -27,8 +27,8 @@
         <junit.version>5.10.1</junit.version>
         <assertj.version>3.24.2</assertj.version>
 
-        <!-- Default main class (override with -Dexec.mainClass=ai.tuvium.coverage.RejudgeApp) -->
-        <exec.mainClass>ai.tuvium.coverage.CoverageExperimentApp</exec.mainClass>
+        <!-- Default main class (override with -Dexec.mainClass=io.github.markpollack.lab.experiment.coverage.RejudgeApp) -->
+        <exec.mainClass>io.github.markpollack.lab.experiment.coverage.CoverageExperimentApp</exec.mainClass>
     </properties>
 
     <dependencies>

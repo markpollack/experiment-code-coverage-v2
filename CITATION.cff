@@ -1,0 +1,35 @@
+cff-version: 1.2.0
+message: "If you use this experiment or its methodology, please cite it as below."
+type: software
+title: "Code Coverage Experiment v2: Agent Knowledge Packaging"
+abstract: >
+  A controlled experiment comparing agent-structured knowledge (SkillsJars) against
+  flat file injection for AI-generated Spring test quality. Uses Markov chain analysis
+  of tool-call traces to characterize mechanism differences across 7 prompt variants
+  on spring-petclinic. Finds that SkillsJars near-eliminates redundant API lookups
+  (JAR_INSPECT: 1.0% vs 11.0%) while pre-analysis script drives the
+  largest efficiency gain (224 vs 301 expected steps).
+authors:
+  - family-names: Pollack
+    given-names: Mark
+    orcid: ""
+repository-code: "https://github.com/markpollack/code-coverage-v2"
+url: "https://github.com/markpollack/code-coverage-v2"
+date-released: "2026-03-16"
+version: "1.0.0"
+license: Apache-2.0
+keywords:
+  - agent evaluation
+  - test generation
+  - knowledge packaging
+  - Markov chain analysis
+  - Spring Framework
+  - large language models
+  - SkillsJars
+references:
+  - type: software
+    title: "Code Coverage Experiment v1"
+    url: "https://github.com/markpollack/code-coverage-experiment"
+    authors:
+      - family-names: Pollack
+        given-names: Mark
