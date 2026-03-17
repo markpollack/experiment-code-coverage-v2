@@ -376,6 +376,200 @@ def chart_thinking_length_vs_quality(df_blocks: pd.DataFrame):
     print(f"  {out}")
 
 
+# ── chart 6: policy table — intent → first action ─────────────────────────
+
+def load_intent_action_pairs():
+    """
+    For each thinking block, record (topic, first_tool_after_it).
+    Uses proportional index mapping: thinking block i → tool use at floor(i*n_tools/n_thinking).
+    Returns DataFrame with columns: variant, topic, tool.
+    """
+    rows = []
+    for session_dir in sorted(RESULTS_DIR.iterdir()):
+        for jf in session_dir.glob("*.json"):
+            if jf.name == "session.json":
+                continue
+            try:
+                data = json.loads(jf.read_text())
+            except Exception:
+                continue
+            variant = jf.stem
+            for item in data.get("items", []):
+                ir = item.get("invocationResult", {})
+                for phase in ir.get("phases", []):
+                    tbs = phase.get("thinkingBlocks", [])
+                    tus = phase.get("toolUses", [])
+                    if not tbs or not tus:
+                        continue
+                    n_t, n_u = len(tbs), len(tus)
+                    for i, tb in enumerate(tbs):
+                        topic = classify_block(tb)
+                        first_tool_idx = int(i * n_u / n_t)
+                        tool = tus[first_tool_idx]["name"]
+                        rows.append({"variant": variant, "topic": topic, "tool": tool})
+    return pd.DataFrame(rows)
+
+
+POLICY_TOOLS = ["Bash", "Read", "Write", "Edit", "Glob", "Agent"]
+POLICY_TOPIC_ORDER = ["EXPLORE", "FIX", "VERIFY", "BUILD", "WRITE", "JAR", "META"]
+VARIANT_HAS_SKILLS = {"hardened+skills", "hardened+skills+sae", "hardened+skills+sae+forge"}
+
+
+def chart_policy_table(df_pairs: pd.DataFrame):
+    """
+    Two-panel chart:
+      Left  — heatmap of P(tool | intent), all variants combined
+      Right — policy sharpness (max P per intent) + EXPLORE policy split by skills
+    """
+    if df_pairs.empty:
+        print("  No intent-action pairs — skipping chart 6.")
+        return
+
+    # Build matrix
+    matrix = pd.DataFrame(0.0, index=POLICY_TOPIC_ORDER, columns=POLICY_TOOLS)
+    sharpness = {}
+    topic_n   = {}
+    for topic in POLICY_TOPIC_ORDER:
+        sub = df_pairs[df_pairs["topic"] == topic]
+        if len(sub) == 0:
+            continue
+        topic_n[topic] = len(sub)
+        from collections import Counter
+        cnt = Counter(sub["tool"])
+        total = len(sub)
+        for tool in POLICY_TOOLS:
+            matrix.loc[topic, tool] = cnt.get(tool, 0) / total
+        sharpness[topic] = max(cnt.values()) / total
+
+    fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(13, 4.5), facecolor=BG)
+    fig.suptitle("Intent → Action Policy  (what the agent does after each type of thinking)",
+                 fontsize=12)
+
+    # --- left: heatmap ---
+    ax1.set_facecolor(BG)
+    mat_vals = matrix.values
+    im = ax1.imshow(mat_vals, cmap="Blues", aspect="auto", vmin=0, vmax=1)
+
+    ax1.set_xticks(range(len(POLICY_TOOLS)))
+    ax1.set_xticklabels(POLICY_TOOLS, fontsize=9)
+    ax1.set_yticks(range(len(POLICY_TOPIC_ORDER)))
+    topics_with_n = [f"{t}\n(n={topic_n.get(t, 0)})" for t in POLICY_TOPIC_ORDER]
+    ax1.set_yticklabels(topics_with_n, fontsize=8.5)
+    ax1.set_title("P(tool | intent)  — all variants", fontsize=10)
+
+    for r, topic in enumerate(POLICY_TOPIC_ORDER):
+        for c, tool in enumerate(POLICY_TOOLS):
+            v = mat_vals[r, c]
+            if v > 0.05:
+                color = "white" if v > 0.55 else "black"
+                ax1.text(c, r, f"{v:.0%}", ha="center", va="center",
+                         fontsize=8.5, color=color, fontweight="bold")
+
+    plt.colorbar(im, ax=ax1, fraction=0.03, pad=0.02)
+    ax1.spines[["top", "right", "bottom", "left"]].set_visible(False)
+
+    # --- right: sharpness bar + EXPLORE skills split ---
+    ax2.set_facecolor(BG)
+
+    # sharpness bars
+    topics = [t for t in POLICY_TOPIC_ORDER if t in sharpness]
+    sharp_vals = [sharpness[t] for t in topics]
+    colors = ["#fd8d3c" if v >= 0.6 else "#4292c6" if v >= 0.45 else "#c6dbef"
+              for v in sharp_vals]
+    bars = ax2.barh(topics, sharp_vals, color=colors, edgecolor="#aaa", linewidth=0.4)
+
+    for bar, v in zip(bars, sharp_vals):
+        ax2.text(v + 0.01, bar.get_y() + bar.get_height() / 2,
+                 f"{v:.0%}", va="center", fontsize=8.5, color="#333")
+
+    ax2.set_xlim(0, 1.05)
+    ax2.axvline(0.6, color="#de2d26", linewidth=0.8, linestyle="--", alpha=0.6)
+    ax2.axvline(0.45, color="#fd8d3c", linewidth=0.8, linestyle="--", alpha=0.5)
+    ax2.set_xlabel("Policy sharpness  (max P(action | intent))", fontsize=9)
+    ax2.set_title("Sharp = deterministic / Diffuse = exploratory", fontsize=10)
+    ax2.spines[["top", "right"]].set_visible(False)
+
+    note = "Dashed lines at 0.45 and 0.60 — informal 'diffuse / moderate / sharp' thresholds"
+    ax2.text(0.01, -0.12, note, transform=ax2.transAxes,
+             fontsize=7, color="#666", style="italic")
+
+    fig.tight_layout()
+    out = OUT_DIR / "thinking-policy-table.png"
+    fig.savefig(out, dpi=180, bbox_inches="tight", facecolor=BG)
+    plt.close(fig)
+    print(f"  {out}")
+
+
+def chart_explore_skills_split(df_pairs: pd.DataFrame):
+    """
+    EXPLORE thinking → tool distribution: with-skills vs without-skills variants.
+    Shows that skills shift EXPLORE from Bash-first to Read-first.
+    """
+    if df_pairs.empty:
+        print("  No intent-action pairs — skipping chart 7.")
+        return
+
+    exp = df_pairs[df_pairs["topic"] == "EXPLORE"].copy()
+    exp["group"] = exp["variant"].map(
+        lambda v: "With +skills" if v in VARIANT_HAS_SKILLS else "Without +skills"
+    )
+
+    from collections import Counter
+
+    fig, ax = plt.subplots(figsize=(7, 4), facecolor=BG)
+    ax.set_facecolor(BG)
+
+    groups = ["Without +skills", "With +skills"]
+    x = np.arange(len(groups))
+    w = 0.55
+    bottoms = np.zeros(len(groups))
+
+    group_tools = {}
+    for g in groups:
+        sub = exp[exp["group"] == g]
+        cnt = Counter(sub["tool"])
+        total = len(sub)
+        group_tools[g] = {tool: cnt.get(tool, 0) / total for tool in POLICY_TOOLS}
+
+    tool_colors = {
+        "Bash": "#fd8d3c", "Read": "#4292c6", "Write": "#74c476",
+        "Edit": "#756bb1", "Glob": "#8c6d31", "Agent": "#969696",
+    }
+
+    for tool in POLICY_TOOLS:
+        vals = [group_tools[g].get(tool, 0) * 100 for g in groups]
+        ax.bar(x, vals, w, bottom=bottoms, color=tool_colors[tool], label=tool)
+        for xi, (v, b) in enumerate(zip(vals, bottoms)):
+            if v > 5:
+                ax.text(xi, b + v / 2, f"{v:.0f}%",
+                        ha="center", va="center", fontsize=9, color="white", fontweight="bold")
+        bottoms += np.array(vals)
+
+    n_without = len(exp[exp["group"] == "Without +skills"])
+    n_with    = len(exp[exp["group"] == "With +skills"])
+    ax.set_xticks(x)
+    ax.set_xticklabels(
+        [f"Without +skills\n(n={n_without} EXPLORE blocks)",
+         f"With +skills\n(n={n_with} EXPLORE blocks)"],
+        fontsize=9,
+    )
+    ax.yaxis.set_major_formatter(mtick.PercentFormatter())
+    ax.set_title("EXPLORE intent: how skills shift the first action",
+                 fontsize=11)
+    ax.legend(loc="upper right", fontsize=8, ncol=3)
+    ax.spines[["top", "right"]].set_visible(False)
+
+    note = "Skills shift EXPLORE from Bash-first to Read-first — orientation strategy changes"
+    ax.text(0.01, -0.12, note, transform=ax.transAxes,
+            fontsize=8, color="#333", style="italic")
+
+    fig.tight_layout()
+    out = OUT_DIR / "thinking-explore-skills-split.png"
+    fig.savefig(out, dpi=180, bbox_inches="tight", facecolor=BG)
+    plt.close(fig)
+    print(f"  {out}")
+
+
 # ── main ───────────────────────────────────────────────────────────────────
 
 if __name__ == "__main__":
@@ -393,4 +587,11 @@ if __name__ == "__main__":
     chart_thinking_vs_quality()
     chart_topics_pass_vs_fail(df_blocks)
     chart_thinking_length_vs_quality(df_blocks)
+
+    print("  Building intent→action pairs…")
+    df_pairs = load_intent_action_pairs()
+    if not df_pairs.empty:
+        print(f"  Built {len(df_pairs)} intent-action pairs")
+    chart_policy_table(df_pairs)
+    chart_explore_skills_split(df_pairs)
     print("Done.")
