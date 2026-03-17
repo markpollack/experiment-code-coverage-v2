@@ -86,11 +86,11 @@ def make_jar_inspect_loop():
     node(ax, ex, ey, "EXPLORE",       COLORS["EXPLORE"])
     node(ax, wx, wy, "WRITE",         COLORS["WRITE"])
 
-    arrow(ax, jx, jy, ex, ey, rad=+0.30, label="0.30", color=ARROW_COLOR)
-    arrow(ax, ex, ey, jx, jy, rad=+0.30, label="",     color=COLORS["EXPLORE"])
-    arrow(ax, jx, jy, wx, wy, rad=0.0,   label="0.39", color=ARROW_COLOR)
+    arrow(ax, jx, jy, ex, ey, rad=+0.30, label="0.42", color=ARROW_COLOR)
+    arrow(ax, ex, ey, jx, jy, rad=+0.30, label="0.09", color=COLORS["EXPLORE"])
+    arrow(ax, jx, jy, wx, wy, rad=0.0,   label="0.30", color=ARROW_COLOR)
 
-    self_loop(ax, jx, jy, direction="top", label="0.15")
+    self_loop(ax, jx, jy, direction="top", label="0.18")
 
     ax.text(4.0 * S, 0.55 * S,
             "hardened variant — JAR_INSPECT accounts for 11% of all steps",

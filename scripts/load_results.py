@@ -123,6 +123,8 @@ def extract_item_results(results: dict[str, dict],
                 "input_tokens": metrics.get("input_tokens") or inv.get("inputTokens", 0),
                 "output_tokens": metrics.get("output_tokens") or inv.get("outputTokens", 0),
                 "thinking_tokens": metrics.get("thinking_tokens") or inv.get("thinkingTokens", 0),
+                "cache_creation_input_tokens": inv.get("cacheCreationInputTokens", 0),
+                "cache_read_input_tokens": inv.get("cacheReadInputTokens", 0),
                 "phase_count": len(inv.get("phases", [])),
             }
 
