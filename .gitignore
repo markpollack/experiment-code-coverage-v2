@@ -12,14 +12,7 @@ scripts/.venv/
 
 # Private local files — not pushed to GitHub
 CLAUDE.md
-plans/JOURNAL.md
-plans/ROADMAP.md
-plans/VISION.md
-plans/DESIGN.md
-plans/learnings/
-plans/inbox/
-plans/markov-n3-run-plan.md
-plans/blog-draft-v1.md
+plans/
 docs/latex/*.aux
 docs/latex/*.fls
 docs/latex/*.fdb_latexmk
@@ -28,4 +21,3 @@ docs/latex/*.out
 docs/latex/*.toc
 data/n3-curated/
 scripts/counterfactual_analysis.py
-plans/ROADMAP-fineract.md
