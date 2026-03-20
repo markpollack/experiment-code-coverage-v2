@@ -4,7 +4,7 @@
 for AI-generated Spring test quality — and why?
 
 **Short answer**: SkillsJars nearly eliminates redundant API lookups (JAR\_INSPECT: 1.0% vs
-11.0%), but structured pre-analysis (SAE) independently drives the largest efficiency gain.
+11.0%), but structured pre-analysis independently drives the largest efficiency gain.
 The combination achieves 25% fewer expected steps than the hardened baseline (224 vs 301).
 
 Direct sequel to [code-coverage-experiment](https://github.com/markpollack/code-coverage-experiment)
@@ -22,9 +22,9 @@ passes.
 | hardened | 301 | 11.0% | 18.3% | 92.6% | $2.53 |
 | hardened+kb | 247 | 10.1% | 19.0% | 93.9% | $2.99 |
 | **hardened+skills** | 297 | **1.0%** | 11.1% | 93.6% | $4.22 |
-| hardened+sae | 238 | 7.1% | 21.4% | 93.2% | $3.39 |
-| **hardened+skills+sae** | **224** | 7.1% | 19.2% | 92.9% | $2.84 |
-| hardened+skills+sae+forge | 279 | 2.1% | 24.9% | 92.6% | $5.67 |
+| hardened+preanalysis | 238 | 7.1% | 21.4% | 93.2% | $3.39 |
+| **hardened+skills+preanalysis** | **224** | 7.1% | 19.2% | 92.9% | $2.84 |
+| hardened+skills+preanalysis+plan-act | 279 | 2.1% | 24.9% | 92.6% | $5.67 |
 
 *Expected steps = mean absorbing steps under first-order Markov model. See
 `analysis/markov-findings.md` for full P-matrix comparison.*
@@ -40,19 +40,20 @@ See [`REPRODUCIBILITY.md`](REPRODUCIBILITY.md) for full instructions. Three leve
 
 **Level 1 — Figures and tables** (no code, ~5 min):
 ```bash
-gh release download <release-tag>
-tar xzf <release-tag>-analysis.tar.gz -C .
+gh release download v2.0.0
+tar xzf v2.0.0-analysis.tar.gz -C .
 # analysis/ contains all figures and tables
 ```
 
 **Level 2 — Re-run analysis from curated data** (no API key, ~10 min):
 ```bash
-gh release download <release-tag>
-tar xzf <release-tag>-results.tar.gz -C results/code-coverage-v2/sessions/
-tar xzf <release-tag>-parquet.tar.gz -C data/
+gh release download v2.0.0
+tar xzf v2.0.0-results.tar.gz -C results/code-coverage-v2/sessions/
+tar xzf v2.0.0-parquet.tar.gz -C data/
 
 uv venv && source .venv/bin/activate
 uv pip install -r scripts/requirements.txt
+pip install -e "markov-agent-analysis[all]"   # see Related section below
 python scripts/make_markov_analysis.py
 python scripts/make_figures.py
 ```
@@ -103,9 +104,9 @@ python scripts/make_figures.py
 | 2 | hardened | structured + stopping condition | — | — | — |
 | 3 | hardened+kb | hardened | flat file injection | — | — |
 | 4 | hardened+skills | hardened | SkillsJars | ✓ | — |
-| 5 | hardened+sae | hardened | — | — | ✓ |
-| 6 | hardened+skills+sae | hardened | SkillsJars | ✓ | ✓ |
-| 7 | hardened+skills+sae+forge | two-phase explore→act | SkillsJars | ✓ | ✓ |
+| 5 | hardened+preanalysis | hardened | — | — | ✓ |
+| 6 | hardened+skills+preanalysis | hardened | SkillsJars | ✓ | ✓ |
+| 7 | hardened+skills+preanalysis+plan-act | two-phase explore→act | SkillsJars | ✓ | ✓ |
 
 **Pre-analysis script** (`ProjectAnalyzer`): a regex-based structural scan run before the
 agent starts. Generates `PROJECT-ANALYSIS.md` in the workspace with a component inventory,
@@ -135,7 +136,7 @@ Agent tool-call traces are modeled as absorbing Markov chains. States:
 
 The P-matrix fingerprint for each variant reveals *mechanism*, not just outcome.
 `hardened+skills` achieves near-zero JAR\_INSPECT by replacing API spelunking with
-skill invocations. `hardened+sae` reduces expected steps by front-loading exploration.
+skill invocations. `hardened+preanalysis` reduces expected steps by front-loading exploration.
 
 ---
 

@@ -89,10 +89,10 @@ VARIANT_ORDER = [
     "simple",
     "hardened",
     "hardened+kb",
-    "hardened+sae",
+    "hardened+preanalysis",
     "hardened+skills",
-    "hardened+skills+sae",
-    "hardened+skills+sae+forge",
+    "hardened+skills+preanalysis",
+    "hardened+skills+preanalysis+plan-act",
 ]
 
 # FIX_LOOP: rework cluster — agent retrying after test failure
@@ -118,10 +118,10 @@ NOTE_MAP = {
     "simple":                  "Minimal prompt — baseline",
     "hardened":                "Hardened prompt + stopping condition",
     "hardened+kb":             "Hardened + flat KB injection",
-    "hardened+sae":            "Hardened + pre-analysis script",
+    "hardened+preanalysis":    "Hardened + pre-analysis script",
     "hardened+skills":         "Hardened + SkillsJars (structured KB)",
-    "hardened+skills+sae":     "Hardened + skills + pre-analysis script",
-    "hardened+skills+sae+forge": "Two-phase: explore → act",
+    "hardened+skills+preanalysis":     "Hardened + skills + pre-analysis script",
+    "hardened+skills+preanalysis+plan-act": "Two-phase: explore → act",
 }
 
 # ---------------------------------------------------------------------------
@@ -293,7 +293,7 @@ if __name__ == "__main__":
     fig, axes = plt.subplots(1, 2, figsize=(12, 5))
     plt.rcParams.update({"font.family": "serif", "font.size": 10})
 
-    bar_colors = ["#C44E52" if "forge" in v else "#4C72B0" for v in cost_df["variant"]]
+    bar_colors = ["#C44E52" if "plan-act" in v else "#4C72B0" for v in cost_df["variant"]]
 
     ax = axes[0]
     bars = ax.bar(range(len(cost_df)), cost_df["mean_cost"], color=bar_colors,

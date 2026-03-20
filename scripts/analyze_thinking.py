@@ -58,6 +58,11 @@ VARIANT_SHORT = {
     "hardened+skills+preanalysis+plan-act": "+skills\n+preanalysis\n+plan-act",
 }
 
+VARIANT_RENAMES = {
+    "hardened+sae":              "hardened+preanalysis",
+    "hardened+skills+sae":       "hardened+skills+preanalysis",
+    "hardened+skills+sae+forge": "hardened+skills+preanalysis+plan-act",
+}
 
 # ── helpers ────────────────────────────────────────────────────────────────
 
@@ -76,7 +81,7 @@ def load_thinking_blocks():
         for jf in session_dir.glob("*.json"):
             if jf.name == "session.json":
                 continue
-            variant = jf.stem
+            variant = VARIANT_RENAMES.get(jf.stem, jf.stem)
             try:
                 data = json.loads(jf.read_text())
             except Exception:
@@ -393,7 +398,7 @@ def load_intent_action_pairs():
                 data = json.loads(jf.read_text())
             except Exception:
                 continue
-            variant = jf.stem
+            variant = VARIANT_RENAMES.get(jf.stem, jf.stem)
             for item in data.get("items", []):
                 ir = item.get("invocationResult", {})
                 for phase in ir.get("phases", []):
@@ -425,7 +430,7 @@ POLICY_TOOLS_SHORT = {
     "Glob": "Glob", "Agent": "Agent", "Bash:other": "Bash\n(other)",
 }
 POLICY_TOPIC_ORDER = ["EXPLORE", "FIX", "VERIFY", "BUILD", "WRITE", "JAR", "META"]
-VARIANT_HAS_SKILLS = {"hardened+skills", "hardened+skills+sae", "hardened+skills+sae+forge"}
+VARIANT_HAS_SKILLS = {"hardened+skills", "hardened+skills+preanalysis", "hardened+skills+preanalysis+plan-act"}
 
 
 def classify_bash_command(cmd: str) -> str:

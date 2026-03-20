@@ -307,13 +307,13 @@ Compare the plan-act variant (the spiral) to the cleanest variant below:
 \begin{figure}[H]
 \centering
 \begin{minipage}[t]{0.48\textwidth}
-  \includegraphics[width=\textwidth]{../figures/heatmap-hardened-skills-sae-forge.png}
+  \includegraphics[width=\textwidth]{../figures/heatmap-hardened-skills-preanalysis-plan-act.png}
   \caption*{\textbf{hardened+skills+pre-analysis+plan-act} (spiral variant):
             BUILD$\to$FIX and FIX$\to$BUILD cells are both orange/red.
             The agent bounces between them. r14: 22 builds, \$5.67.}
 \end{minipage}\hfill
 \begin{minipage}[t]{0.48\textwidth}
-  \includegraphics[width=\textwidth]{../figures/heatmap-hardened-skills-sae.png}
+  \includegraphics[width=\textwidth]{../figures/heatmap-hardened-skills-preanalysis.png}
   \caption*{\textbf{hardened+skills+pre-analysis} (clean variant):
             FIX$\to$BUILD cell is dimmer. Fewer rework cycles.
             r17: 8 builds, \$3.49.}
@@ -346,13 +346,13 @@ are money being spent on friction and rework.
 \begin{figure}[H]
 \centering
 \begin{minipage}[t]{0.48\textwidth}
-  \includegraphics[width=\textwidth]{../figures/sankey-flow-hardened+skills+sae+forge.png}
+  \includegraphics[width=\textwidth]{../figures/sankey-flow-hardened+skills+preanalysis+plan-act.png}
   \caption*{\textbf{Inefficient}: hardened+skills+pre-analysis+plan-act.
             Wide FIX$\leftrightarrow$BUILD arcs dominate.
             Worst run (r14): 22 builds, \$5.67, 43 min.}
 \end{minipage}\hfill
 \begin{minipage}[t]{0.48\textwidth}
-  \includegraphics[width=\textwidth]{../figures/sankey-flow-hardened+skills+sae.png}
+  \includegraphics[width=\textwidth]{../figures/sankey-flow-hardened+skills+preanalysis.png}
   \caption*{\textbf{Efficient}: hardened+skills+pre-analysis.
             Flow goes straight: EXPLORE $\to$ WRITE $\to$ BUILD $\to$ VERIFY.
             Best run (r17): 8 builds, \$3.49, 26 min.}

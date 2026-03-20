@@ -27,8 +27,8 @@ Download the pre-built analysis snapshot from the GitHub release.
 gh release list
 
 # Download analysis tarball for a specific release
-gh release download <release-tag> --pattern "*-analysis.tar.gz"
-tar xzf <release-tag>-analysis.tar.gz -C .
+gh release download v2.0.0 --pattern "*-analysis.tar.gz"
+tar xzf v2.0.0-analysis.tar.gz -C .
 ```
 
 **Expected outputs in `analysis/`**:
@@ -47,14 +47,14 @@ Download raw session results and curated parquet files, then re-run the analysis
 ### 2a. Download release assets
 
 ```bash
-gh release download <release-tag>
+gh release download v2.0.0
 
 # Extract session results
 mkdir -p results/code-coverage-v2/sessions
-tar xzf <release-tag>-results.tar.gz -C results/code-coverage-v2/sessions/
+tar xzf v2.0.0-results.tar.gz -C results/code-coverage-v2/sessions/
 
 # Extract curated parquet tables
-tar xzf <release-tag>-parquet.tar.gz -C data/
+tar xzf v2.0.0-parquet.tar.gz -C data/
 ```
 
 **Session IDs included** are listed in the release notes on GitHub.
@@ -97,7 +97,7 @@ python scripts/make_markov_analysis.py
 | File | Key metric |
 |------|-----------|
 | `analysis/markov-findings.md` | `hardened+skills` JAR\_INSPECT ≈ 1.0% |
-| `analysis/markov-findings.md` | `hardened+skills+sae` exp. steps ≈ 224 |
+| `analysis/markov-findings.md` | `hardened+skills+preanalysis` exp. steps ≈ 224 |
 | `analysis/markov-validation.md` | KL divergence < 0.50 bits |
 
 ```bash
@@ -166,9 +166,9 @@ printed in the sweep log.
 | hardened | ~$5.06 | ~34 min |
 | hardened+kb | ~$6.00 | ~36 min |
 | hardened+skills | ~$8.44 | ~54 min |
-| hardened+sae | ~$6.80 | ~50 min |
-| hardened+skills+sae | ~$5.68 | ~56 min |
-| hardened+skills+sae+forge | ~$9.50 | ~72 min |
+| hardened+preanalysis | ~$6.80 | ~50 min |
+| hardened+skills+preanalysis | ~$5.68 | ~56 min |
+| hardened+skills+preanalysis+plan-act | ~$9.50 | ~72 min |
 | **Total** | **~$50–57** | **~6–7 hrs** |
 
 ---
@@ -178,7 +178,7 @@ printed in the sweep log.
 After Level 2 or Level 3, verify these numbers match published results:
 
 - [ ] `hardened+skills` JAR\_INSPECT% ≤ 2.0%
-- [ ] `hardened+skills+sae` expected steps ≤ 230
+- [ ] `hardened+skills+preanalysis` expected steps ≤ 230
 - [ ] All 7 variants have P(success) = 1.0 on spring-petclinic
 - [ ] `validate_markov.py` reports KL divergence < 0.50 bits
 - [ ] `item_results.parquet` has 7 variants × N rows

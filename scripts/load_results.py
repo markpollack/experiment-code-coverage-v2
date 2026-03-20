@@ -41,6 +41,15 @@ SCORE_MAP = {
     "Judge#1":                   "t3_quality",
 }
 
+# Canonical variant names for published parquet files.
+# JSON filenames use the original +sae/+forge names from the experiment harness;
+# this map translates them to the display names used in figures and prose.
+VARIANT_RENAMES = {
+    "hardened+sae":              "hardened+preanalysis",
+    "hardened+skills+sae":       "hardened+skills+preanalysis",
+    "hardened+skills+sae+forge": "hardened+skills+preanalysis+plan-act",
+}
+
 
 def find_latest_session(results_dir: Path) -> str:
     """Find the most recent session directory."""
@@ -63,7 +72,7 @@ def load_session_results(results_dir: Path, session_name: str) -> dict[str, dict
     for f in sorted(session_dir.glob("*.json")):
         if f.name in ("session.json", "sessions-index.json"):
             continue
-        variant = f.stem
+        variant = VARIANT_RENAMES.get(f.stem, f.stem)
         with open(f) as fh:
             results[variant] = json.load(fh)
     return results
