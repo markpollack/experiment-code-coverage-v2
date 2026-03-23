@@ -14,6 +14,10 @@ cd code-coverage-v2
 # Python environment
 uv venv && source .venv/bin/activate
 uv pip install -r scripts/requirements.txt
+
+# Markov analysis library (required for Level 2)
+git clone https://github.com/markpollack/markov-agent-analysis
+uv pip install -e markov-agent-analysis[all]
 ```
 
 ---

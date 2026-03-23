@@ -9,6 +9,7 @@ analysis/
 docs/figures/
 scripts/.venv/
 **/__pycache__/
+*.tar.gz
 
 # Private local files — not pushed to GitHub
 CLAUDE.md

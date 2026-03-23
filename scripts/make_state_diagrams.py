@@ -81,19 +81,23 @@ def make_jar_inspect_loop():
     jx, jy = 4.0, 5.0
     ex, ey = 1.6, 2.0
     wx, wy = 6.4, 2.0
+    fx, fy = 4.0, 1.0  # FIX node below JAR_INSPECT
 
     node(ax, jx, jy, "JAR\nINSPECT", COLORS["JAR_INSPECT"])
     node(ax, ex, ey, "EXPLORE",       COLORS["EXPLORE"])
     node(ax, wx, wy, "WRITE",         COLORS["WRITE"])
+    node(ax, fx, fy, "FIX",           COLORS["FIX"])
 
-    arrow(ax, jx, jy, ex, ey, rad=+0.30, label="0.42", color=ARROW_COLOR)
-    arrow(ax, ex, ey, jx, jy, rad=+0.30, label="0.09", color=COLORS["EXPLORE"])
-    arrow(ax, jx, jy, wx, wy, rad=0.0,   label="0.30", color=ARROW_COLOR)
+    # Verified from v2.0.0 parquet: 54 transitions from JAR_INSPECT in hardened
+    arrow(ax, jx, jy, ex, ey, rad=+0.30, label="0.20", color=ARROW_COLOR)
+    arrow(ax, ex, ey, jx, jy, rad=+0.30, label="0.11", color=COLORS["EXPLORE"])
+    arrow(ax, jx, jy, wx, wy, rad=0.0,   label="0.26", color=ARROW_COLOR)
+    arrow(ax, jx, jy, fx, fy, rad=0.0,   label="0.19", color=COLORS["FIX"])
 
-    self_loop(ax, jx, jy, direction="top", label="0.18")
+    self_loop(ax, jx, jy, direction="top", label="0.15")
 
-    ax.text(4.0 * S, 0.55 * S,
-            "hardened variant — JAR_INSPECT accounts for 11% of all steps",
+    ax.text(4.0 * S, -0.2 * S,
+            "hardened variant — JAR_INSPECT accounts for 18% of all steps",
             ha="center", va="center", fontsize=8, color="#666666",
             fontstyle="italic")
 
@@ -117,11 +121,12 @@ def make_jar_inspect_fixed():
     node(ax, bx, by, "BUILD",         COLORS["BUILD"])
     node(ax, fx, fy, "FIX",           COLORS["FIX"])
 
-    arrow(ax, jx, jy, bx, by, rad=0.0, label="0.67")
-    arrow(ax, jx, jy, fx, fy, rad=0.0, label="0.33")
+    # Verified from v2.0.0 parquet: only 5 transitions from JAR_INSPECT in hardened+skills
+    arrow(ax, jx, jy, bx, by, rad=0.0, label="0.60")
+    arrow(ax, jx, jy, fx, fy, rad=0.0, label="0.40")
 
     ax.text(3.5 * S, 0.35 * S,
-            "hardened+skills — JAR_INSPECT < 1% of steps, no cycling",
+            "hardened+skills — JAR_INSPECT < 2% of steps, no cycling",
             ha="center", va="center", fontsize=8, color="#666666",
             fontstyle="italic")
 
