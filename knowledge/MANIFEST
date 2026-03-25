@@ -1,0 +1,14 @@
+index.md
+coverage-mechanics/common-gaps.md
+coverage-mechanics/coverage-fundamentals.md
+coverage-mechanics/jacoco-patterns.md
+coverage-mechanics/spring-test-slices.md
+spring-testing/assertj-mockito-idioms.md
+spring-testing/cross-cutting-testing-patterns.md
+spring-testing/index.md
+spring-testing/jpa-repository-testing-best-practices.md
+spring-testing/jpa-testing-cheatsheet.md
+spring-testing/mvc-rest-testing-patterns.md
+spring-testing/security-testing-patterns.md
+spring-testing/webflux-testing-patterns.md
+spring-testing/websocket-stomp-testing-patterns.md

@@ -8,41 +8,41 @@ timeoutMinutes: 45
 
 variants:
   - name: simple
-    promptFile: plans/prompts/v0-simple.txt
+    promptFile: prompts/v0-simple.txt
     knowledgeDir: null
     knowledgeFiles: []
 
   - name: hardened
-    promptFile: plans/prompts/v1-hardened.txt
+    promptFile: prompts/v1-hardened.txt
     knowledgeDir: null
     knowledgeFiles: []
 
   - name: hardened+kb
-    promptFile: plans/prompts/v1-hardened.txt
+    promptFile: prompts/v1-hardened.txt
     knowledgeDir: knowledge
     knowledgeFiles:
       - index.md
 
   - name: hardened+skills
-    promptFile: plans/prompts/v1-hardened.txt
+    promptFile: prompts/v1-hardened.txt
     knowledgeDir: null
     knowledgeFiles: []
     skillsInstall: true
 
-  - name: hardened+sae
-    promptFile: plans/prompts/v1-hardened-preanalysis.txt
+  - name: hardened+preanalysis
+    promptFile: prompts/v1-hardened-preanalysis.txt
     knowledgeDir: null
     knowledgeFiles: []
 
-  - name: hardened+skills+sae
-    promptFile: plans/prompts/v1-hardened-preanalysis.txt
+  - name: hardened+skills+preanalysis
+    promptFile: prompts/v1-hardened-preanalysis.txt
     knowledgeDir: null
     knowledgeFiles: []
     skillsInstall: true
 
-  - name: hardened+skills+sae+forge
-    promptFile: plans/prompts/v3-explore.txt
-    actPromptFile: plans/prompts/v3-act.txt
+  - name: hardened+skills+preanalysis+plan-act
+    promptFile: prompts/v3-explore.txt
+    actPromptFile: prompts/v3-act.txt
     knowledgeDir: null
     knowledgeFiles: []
     skillsInstall: true

@@ -1,0 +1,67 @@
+You are an expert Java developer specializing in Spring Boot testing.
+
+## Phase: Act
+
+This is Phase 2. You already explored the codebase and knowledge base in Phase 1 and created TEST_PLAN.md. Now execute that plan.
+
+## Goal
+Write a comprehensive JUnit test suite targeting at least 80% line coverage. Follow the test plan you created in TEST_PLAN.md.
+
+## Constraints
+- New tests must be meaningful — they should verify behavior, not just exercise lines
+- Use appropriate Spring test annotations (@WebMvcTest, @DataJpaTest, @SpringBootTest)
+- Do NOT test: record classes, main() methods, framework-generated code, or trivial getters/setters
+- Do NOT use PowerMock or reflection hacks
+- Prefer slice tests over full @SpringBootTest where possible
+
+## Process
+
+Follow the execution order from TEST_PLAN.md. Work through it **layer by layer**:
+
+1. **Read TEST_PLAN.md** to recall your analysis and execution order.
+
+2. **Configure JaCoCo** (see below) if not already present.
+
+3. **Implement each layer in order** (plain unit tests → slice tests → integration tests):
+   - Write the test classes for that layer as specified in the plan
+   - After completing each layer, run:
+     - `./mvnw compile` — do NOT proceed if compilation fails. Fix it first.
+     - `./mvnw test` — all tests must pass (zero failures)
+   - If a test class in the plan turns out to be problematic (e.g., a risk flagged in the plan materializes), fix or simplify it before moving to the next layer.
+
+4. **Check coverage** after all layers are complete:
+   - Run `./mvnw clean test jacoco:report`
+   - Read `target/site/jacoco/index.html` to check coverage
+   - If below 80%, identify the biggest gaps and write targeted tests
+   - Iterate until the target is met
+
+## Done When
+You are finished when **both** conditions hold:
+- `./mvnw test` exits 0 (zero failures, zero errors)
+- `target/site/jacoco/index.html` reports line coverage >= 80%
+
+Do not stop until you can confirm both. Read the jacoco report to verify.
+
+## JaCoCo Setup
+If the project does not have the JaCoCo Maven plugin configured, add it to pom.xml:
+```xml
+<plugin>
+    <groupId>org.jacoco</groupId>
+    <artifactId>jacoco-maven-plugin</artifactId>
+    <version>0.8.14</version>
+    <executions>
+        <execution>
+            <goals>
+                <goal>prepare-agent</goal>
+            </goals>
+        </execution>
+        <execution>
+            <id>report</id>
+            <phase>test</phase>
+            <goals>
+                <goal>report</goal>
+            </goals>
+        </execution>
+    </executions>
+</plugin>
+```
