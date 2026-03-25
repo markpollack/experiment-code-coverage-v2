@@ -40,7 +40,7 @@ public class SkillsInstaller {
 			<?xml version="1.0" encoding="UTF-8"?>
 			<project>
 			  <modelVersion>4.0.0</modelVersion>
-			  <groupId>ai.tuvium</groupId>
+			  <groupId>io.github.markpollack</groupId>
 			  <artifactId>skills-extractor</artifactId>
 			  <version>1.0</version>
 			  <build>

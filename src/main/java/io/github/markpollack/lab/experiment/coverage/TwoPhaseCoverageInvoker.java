@@ -3,7 +3,7 @@ package io.github.markpollack.lab.experiment.coverage;
 import java.nio.file.Path;
 import java.util.List;
 
-import ai.tuvium.experiment.agent.InvocationContext;
+import io.github.markpollack.experiment.agent.InvocationContext;
 import io.github.markpollack.journal.claude.PhaseCapture;
 import io.github.markpollack.journal.claude.SessionLogParser;
 import org.slf4j.Logger;

@@ -17,7 +17,7 @@ import java.util.TreeSet;
 import java.util.stream.Collectors;
 
 import io.github.markpollack.lab.experiment.coverage.judge.TestQualityJudge;
-import ai.tuvium.experiment.scoring.VerdictExtractor;
+import io.github.markpollack.experiment.scoring.VerdictExtractor;
 import com.fasterxml.jackson.annotation.JsonSubTypes;
 import com.fasterxml.jackson.annotation.JsonTypeInfo;
 import com.fasterxml.jackson.core.JsonGenerator;
@@ -58,15 +58,15 @@ import org.springaicommunity.judge.score.Score;
  *
  * <pre>
  *   # Re-judge all valid sessions (T1+T2+T3)
- *   ./mvnw compile exec:java -Dexec.mainClass=ai.tuvium.coverage.RejudgeApp \
+ *   ./mvnw compile exec:java -Dexec.mainClass=io.github.markpollack.lab.experiment.coverage.RejudgeApp \
  *     -Dexec.args="--regenerate-jacoco"
  *
  *   # Coverage judges only (fast, no LLM calls)
- *   ./mvnw compile exec:java -Dexec.mainClass=ai.tuvium.coverage.RejudgeApp \
+ *   ./mvnw compile exec:java -Dexec.mainClass=io.github.markpollack.lab.experiment.coverage.RejudgeApp \
  *     -Dexec.args="--tiers 1,2 --regenerate-jacoco"
  *
  *   # Single session, dry-run
- *   ./mvnw compile exec:java -Dexec.mainClass=ai.tuvium.coverage.RejudgeApp \
+ *   ./mvnw compile exec:java -Dexec.mainClass=io.github.markpollack.lab.experiment.coverage.RejudgeApp \
  *     -Dexec.args="--session 20260312-181643 --dry-run"
  * </pre>
  */

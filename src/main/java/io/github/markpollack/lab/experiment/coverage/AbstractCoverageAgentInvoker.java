@@ -12,10 +12,10 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
-import ai.tuvium.experiment.agent.AgentInvocationException;
-import ai.tuvium.experiment.agent.AgentInvoker;
-import ai.tuvium.experiment.agent.InvocationContext;
-import ai.tuvium.experiment.agent.InvocationResult;
+import io.github.markpollack.experiment.agent.AgentInvocationException;
+import io.github.markpollack.experiment.agent.AgentInvoker;
+import io.github.markpollack.experiment.agent.InvocationContext;
+import io.github.markpollack.experiment.agent.InvocationResult;
 import io.github.markpollack.journal.claude.PhaseCapture;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;

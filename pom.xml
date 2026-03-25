@@ -34,7 +34,7 @@
     <dependencies>
         <!-- Experiment framework -->
         <dependency>
-            <groupId>ai.tuvium</groupId>
+            <groupId>io.github.markpollack</groupId>
             <artifactId>experiment-core</artifactId>
             <version>${experiment-core.version}</version>
         </dependency>
