@@ -42,8 +42,8 @@
 \title{\textbf{Agent Efficiency Experiment: Results Report}\\[0.4em]
 \large Code Coverage on Spring PetClinic\\
 7 Variants $\times$ 3 Runs --- What the Data Shows\\[0.6em]
-\normalsize Code Coverage Experiment v2}
-\author{Mark Pollack}
+\normalsize Tuvium Code Coverage Experiment v2}
+\author{Tuvium Research}
 \date{March 2026}
 
 \begin{document}
@@ -283,8 +283,34 @@ eliminates it entirely.
 
 SEARCH = SHELL + JAR\_INSPECT (all unstructured searching). This is the headline efficiency
 metric: \texttt{hardened} wastes 38\% of all steps on searching; \texttt{hardened+skills}
-cuts that to 13.4\%, and direct EXPLORE (targeted file reads) doubles from 30\% to 60\%.
-Skills don't just reduce JAR inspection --- they shift the agent from searching to reading.
+cuts that to 13.2\%.
+
+\subsection*{Exploration quality: not all orientation is equal}
+
+EXPLORE (targeted file access via Read/Glob) is productive --- the agent \emph{should}
+read source files before writing tests. SHELL (blind \texttt{find}, \texttt{ls}, \texttt{grep})
+and JAR\_INSPECT (\texttt{jar tf}, \texttt{javap}) are wasteful.
+Skills shift the agent from searching to reading:
+
+\begin{center}
+\begin{tabular}{@{}lrrrr@{}}
+\toprule
+\textbf{Variant} & \textbf{Read calls} & \textbf{SHELL calls} & \textbf{JAR calls} & \textbf{SEARCH \%} \\
+\midrule
+\texttt{simple}              & 100 & 33 & 20 & 24.3\% \\
+\texttt{hardened}            &  89 & 62 & 54 & 37.9\% \\
+\texttt{hardened+kb}         &  74 & 39 & 37 & 30.8\% \\
+\texttt{hardened+preanalysis}          &  74 & 52 & 20 & 30.1\% \\
+\texttt{hardened+skills}     & 173 & 35 &  5 & 13.2\% \\
+\texttt{hardened+skills+preanalysis} &  87 & 21 & 19 & 17.9\% \\
+\texttt{hardened+skills+preanalysis+plan-act} & 107 & 39 & 11 & 17.7\% \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+Targeted Read calls nearly double from 89 (\texttt{hardened}) to 173 (\texttt{hardened+skills}),
+while SHELL drops from 62 to 35 and JAR\_INSPECT plummets from 54 to 5.
+Skills don't reduce how much the agent orients --- they shift it from searching to reading.
 
 \begin{notebox}
 \textbf{The hardened paradox}: adding a hardened prompt \emph{increases} JAR inspection
