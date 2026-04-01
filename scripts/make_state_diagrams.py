@@ -89,12 +89,14 @@ def make_jar_inspect_loop():
     node(ax, fx, fy, "FIX",           COLORS["FIX"])
 
     # Verified from v2.0.0 parquet: 54 transitions from JAR_INSPECT in hardened
-    arrow(ax, jx, jy, ex, ey, rad=+0.30, label="0.20", color=ARROW_COLOR)
-    arrow(ax, ex, ey, jx, jy, rad=+0.30, label="0.11", color=COLORS["EXPLORE"])
+    # Counts: →EXPLORE 10/54=0.19, →WRITE 14/54=0.26, →FIX 10/54=0.19,
+    #          self-loop 9/54=0.17, EXPLORE→JAR 9/91=0.10
+    arrow(ax, jx, jy, ex, ey, rad=+0.30, label="0.19", color=ARROW_COLOR)
+    arrow(ax, ex, ey, jx, jy, rad=+0.30, label="0.10", color=COLORS["EXPLORE"])
     arrow(ax, jx, jy, wx, wy, rad=0.0,   label="0.26", color=ARROW_COLOR)
     arrow(ax, jx, jy, fx, fy, rad=0.0,   label="0.19", color=COLORS["FIX"])
 
-    self_loop(ax, jx, jy, direction="top", label="0.15")
+    self_loop(ax, jx, jy, direction="top", label="0.17")
 
     ax.text(4.0 * S, -0.2 * S,
             "hardened variant — JAR_INSPECT accounts for 18% of all steps",

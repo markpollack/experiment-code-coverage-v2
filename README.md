@@ -145,7 +145,7 @@ skill invocations. `hardened+preanalysis` reduces expected steps by front-loadin
 - Java 21, Maven (wrapper included: `./mvnw`)
 - Python 3.10+, [uv](https://github.com/astral-sh/uv)
 - Claude API key (Level 3 reproduction only)
-- [spring-testing-skills](https://github.com/markpollack/spring-testing-skills)
+- [spring-testing-skills](https://github.com/spring-ai-community/spring-testing-skills)
   installed to `~/.claude/skills/` (Variants 4, 6, 7 only)
 
 ---

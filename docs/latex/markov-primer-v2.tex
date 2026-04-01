@@ -44,7 +44,7 @@
 \large A Conversational Guide to Markov Chains,\\
 Behavioral Clusters, and Agent Efficiency\\[0.6em]
 \normalsize Built from 20 real agent runs on spring-petclinic}
-\author{Mark Pollack --- v2 Coverage Experiment}
+\author{Tuvium Research --- v2 Coverage Experiment}
 \date{March 2026}
 
 \begin{document}
@@ -230,7 +230,7 @@ Compare to \texttt{hardened+skills}: that whole row is pale --- the agent never 
 \begin{minipage}[t]{0.48\textwidth}
   \includegraphics[width=\textwidth]{../figures/heatmap-hardened.png}
   \caption*{\textbf{hardened}: JAR\_INSPECT diagonal is bright red (high self-loop).
-            11\% of all steps are JAR inspection.}
+            18\% of all steps are JAR inspection.}
 \end{minipage}\hfill
 \begin{minipage}[t]{0.48\textwidth}
   \includegraphics[width=\textwidth]{../figures/heatmap-hardened-skills.png}
@@ -657,8 +657,8 @@ should change, you can forecast. If you're making a sweeping change, run the exp
 
 The delta heatmap between hardened and hardened+skills shows:
 \begin{itemize}
-  \item $P(\text{EXPLORE}, \text{JAR\_INSPECT})$ dropped by approximately 0.08
-  \item $P(\text{EXPLORE}, \text{WRITE})$ rose by approximately 0.05
+  \item $P(\text{EXPLORE}, \text{JAR\_INSPECT})$ dropped by approximately 0.09
+  \item $P(\text{WRITE}, \text{EXPLORE})$ rose by approximately 0.05
 \end{itemize}
 
 If we had only run \texttt{hardened} and wanted to forecast \texttt{hardened+skills},
